@@ -1,0 +1,33 @@
+{
+  "tier1": {
+    "description": "Established credible Philippine news organizations",
+    "score": 100,
+    "domains": [
+      "rappler.com", "inquirer.net", "gmanetwork.com", "abs-cbn.com",
+      "mb.com.ph", "philstar.com", "manilatimes.net", "sunstar.com.ph",
+      "businessmirror.com.ph", "bworldonline.com", "pna.gov.ph",
+      "doh.gov.ph", "official.deped.gov.ph", "senate.gov.ph", "congress.gov.ph"
+    ]
+  },
+  "tier2": {
+    "description": "Satire, opinion blogs, or entertainment sites",
+    "score": 50,
+    "domains": [
+      "knowyourmeme.com", "9gag.com", "buzzfeed.com",
+      "opinion.inquirer.net", "interaksyon.com"
+    ]
+  },
+  "tier3": {
+    "description": "Unknown / unverified sources — newly registered or low-authority",
+    "score": 25,
+    "domains": []
+  },
+  "tier4": {
+    "description": "Known fake news / misinformation sites (Vera Files blacklist)",
+    "score": 0,
+    "domains": [
+      "duterte.news", "pinoyakoblog.com", "filipinonewsalert.com",
+      "pilipinostar.com", "pinoytrending.net", "maharlikanews.com"
+    ]
+  }
+}

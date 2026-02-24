@@ -1,0 +1,28 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.pkl
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+
+# Cache
+.cache/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+
+# ML models (too large for git)
+ml/models/*.pkl
+ml/models/*.bin
+ml/models/*.pt

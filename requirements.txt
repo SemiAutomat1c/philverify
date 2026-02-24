@@ -1,0 +1,47 @@
+# ── Core Framework ────────────────────────────────────────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.17          # File upload support
+pydantic==2.9.2
+pydantic-settings==2.6.1
+
+# ── NLP & ML ──────────────────────────────────────────────────────────────────
+transformers==4.46.3
+torch==2.5.1
+sentence-transformers==3.3.1
+scikit-learn==1.5.2
+spacy==3.8.2
+langdetect==1.0.9
+nltk==3.9.1
+
+# ── Input Modules ─────────────────────────────────────────────────────────────
+pytesseract==0.3.13               # OCR
+Pillow==11.0.0                    # Image processing
+openai-whisper==20240930          # ASR (Filipino speech)
+beautifulsoup4==4.12.3            # URL scraping
+requests==2.32.3
+lxml==5.3.0
+
+# ── Evidence Retrieval ────────────────────────────────────────────────────────
+newsapi-python==0.2.7
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy==2.0.36
+asyncpg==0.30.0                   # Async PostgreSQL driver
+alembic==1.14.0
+
+# ── Caching ───────────────────────────────────────────────────────────────────
+redis==5.2.1
+cachetools==5.5.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv==1.0.1
+httpx==0.28.1                     # Async HTTP client
+aiofiles==24.1.0
+tqdm==4.67.1
+numpy==1.26.4
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest==8.3.4
+pytest-asyncio==0.24.0
+httpx==0.28.1                     # FastAPI TestClient
