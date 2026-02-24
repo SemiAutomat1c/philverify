@@ -28,3 +28,4 @@ ml/models/*.bin
 ml/models/*.pt
 serviceAccountKey.json
 *.json.key
+docs/*.json
