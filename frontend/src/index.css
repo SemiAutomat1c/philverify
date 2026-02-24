@@ -1,0 +1,283 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@import "tailwindcss";
+
+/* ── Design Tokens — Investigative Newsroom Terminal ──────────── */
+:root {
+  /* Backgrounds — dark newsprint feel */
+  --bg-base: #0d0d0d;
+  --bg-surface: #141414;
+  --bg-elevated: #1c1c1c;
+  --bg-hover: #222222;
+
+  /* Borders */
+  --border: rgba(245, 240, 232, 0.07);
+  --border-light: rgba(245, 240, 232, 0.14);
+
+  /* Accent DNA — PH flag red + gold + cyan data */
+  --accent-red: #dc2626;
+  --accent-gold: #d97706;
+  --accent-cyan: #06b6d4;
+  --accent-green: #16a34a;
+
+  /* Verdict palette */
+  --credible: #16a34a;
+  --unverified: #d97706;
+  --fake: #dc2626;
+
+  /* Typography — warm newsprint white */
+  --text-primary: #f5f0e8;
+  --text-secondary: #a89f94;
+  --text-muted: #5c554e;
+
+  /* Font families */
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-body: 'Lora', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* ── Dark mode meta (web-design-guidelines: color-scheme) ─────── */
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  /* Halftone dot texture — atmospheric depth (frontend-design) */
+  background-image: radial-gradient(circle, rgba(245, 240, 232, 0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  /* web-design-guidelines: text-wrap balance prevents widows */
+  text-wrap: balance;
+}
+
+/* ── Scrollbar ───────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-elevated);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-red);
+}
+
+/* ── Focus (web-design-guidelines: never outline-none without replacement) */
+:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ── Touch (web-design-guidelines) ───────────────────── */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Typography helpers ──────────────────────────────── */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* web-design-guidelines: tabular-nums for data columns */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* ── Verdict Badges — broadcast news aesthetic ─────── */
+.badge-credible {
+  background: rgba(22, 163, 74, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(22, 163, 74, 0.3);
+}
+
+.badge-unverified {
+  background: rgba(217, 119, 6, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+.badge-fake {
+  background: rgba(220, 38, 38, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+}
+
+/* ── Cards ───────────────────────────────────────────── */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  /* Sharp corners — editorial, not bubbly */
+  transition: border-color 0.2s;
+}
+
+.card:hover {
+  border-color: var(--border-light);
+}
+
+.card-elevated {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* ── Left-rule accent divider ────────────────────────── */
+.ruled {
+  border-left: 3px solid var(--accent-red);
+  padding-left: 12px;
+}
+
+/* ── Animations (frontend-design: one orchestrated reveal) ─── */
+/* web-design-guidelines: honor prefers-reduced-motion */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes barGrow {
+    from {
+      width: 0;
+    }
+  }
+
+  @keyframes scanline {
+    from {
+      top: -8px;
+    }
+
+    to {
+      top: 100%;
+    }
+  }
+
+  .fade-up {
+    animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .fade-up-1 {
+    animation: fadeUp 0.5s 0.05s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .fade-up-2 {
+    animation: fadeUp 0.5s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .fade-up-3 {
+    animation: fadeUp 0.5s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .fade-up-4 {
+    animation: fadeUp 0.5s 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .fade-up-5 {
+    animation: fadeUp 0.5s 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .bar-fill {
+    animation: barGrow 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+/* Fallback: no animation for reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+
+  .fade-up,
+  .fade-up-1,
+  .fade-up-2,
+  .fade-up-3,
+  .fade-up-4,
+  .fade-up-5 {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .bar-fill {
+    animation: none;
+  }
+}
+
+/* ── Gauge ─────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes gaugeFill {
+    from {
+      stroke-dashoffset: 400;
+    }
+  }
+
+  .gauge-arc {
+    animation: gaugeFill 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+/* ── Verdict breaking-news banner ──────────────────────── */
+.verdict-banner {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 2px;
+}
+
+.verdict-banner-credible {
+  background: var(--credible);
+  color: #fff;
+}
+
+.verdict-banner-unverified {
+  background: var(--unverified);
+  color: #fff;
+}
+
+.verdict-banner-fake {
+  background: var(--fake);
+  color: #fff;
+}
