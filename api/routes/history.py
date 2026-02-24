@@ -22,7 +22,7 @@ def record_verification(entry: dict) -> None:
     "",
     response_model=HistoryResponse,
     summary="Get verification history",
-    description="Returns past verifications ordered by most recent. Supports pagination.",
+    description="Returns past verifications ordered by most recent. Reads from Firestore when configured, falls back to in-memory store.",
 )
 async def get_history(
     page: int = Query(1, ge=1, description="Page number"),
@@ -31,14 +31,39 @@ async def get_history(
 ) -> HistoryResponse:
     logger.info("GET /history | page=%d limit=%d", page, limit)
 
-    entries = list(reversed(_HISTORY))  # Most recent first
+    # Try Firestore first
+    try:
+        from firebase_client import get_verifications, get_verification_count
+        vf = verdict_filter.value if verdict_filter else None
+        offset = (page - 1) * limit
+        entries_raw = await get_verifications(limit=limit, offset=offset, verdict_filter=vf)
+        total = await get_verification_count(verdict_filter=vf)
+        if entries_raw or total > 0:
+            return HistoryResponse(
+                total=total,
+                entries=[
+                    HistoryEntry(
+                        id=e["id"],
+                        timestamp=e["timestamp"],
+                        input_type=e.get("input_type", "text"),
+                        text_preview=e.get("text_preview", "")[:120],
+                        verdict=Verdict(e["verdict"]),
+                        confidence=e["confidence"],
+                        final_score=e["final_score"],
+                    )
+                    for e in entries_raw
+                ],
+            )
+    except Exception as e:
+        logger.debug("Firestore history read failed (%s) — using in-memory store", e)
+
+    # In-memory fallback
+    entries = list(reversed(_HISTORY))
     if verdict_filter:
         entries = [e for e in entries if e.get("verdict") == verdict_filter.value]
-
     total = len(entries)
     start = (page - 1) * limit
     paginated = entries[start : start + limit]
-
     return HistoryResponse(
         total=total,
         entries=[

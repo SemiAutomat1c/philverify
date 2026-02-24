@@ -192,21 +192,44 @@ async def run_verification(
         input_type=input_type,
     )
 
-    # ── Record to history ─────────────────────────────────────────────────────
+    # ── Record to Firestore (falls back to in-memory if Firebase not configured) ─
+    history_entry = {
+        "id": str(uuid.uuid4()),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "input_type": input_type,
+        "text_preview": text[:120],
+        "verdict": verdict.value,
+        "confidence": result.confidence,
+        "final_score": final_score,
+        "entities": ner_result.to_dict(),
+        "claim_used": claim_result.claim,
+        "layer1": {
+            "verdict": layer1.verdict.value,
+            "confidence": layer1.confidence,
+            "triggered_features": layer1.triggered_features,
+        },
+        "layer2": {
+            "verdict": layer2.verdict.value,
+            "evidence_score": layer2.evidence_score,
+            "claim_used": layer2.claim_used,
+        },
+        "sentiment": sentiment_result.sentiment,
+        "emotion": sentiment_result.emotion,
+        "language": language.value,
+    }
     try:
-        from api.routes.history import record_verification
-        record_verification({
-            "id": str(uuid.uuid4()),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "input_type": input_type,
-            "text_preview": text[:120],
-            "verdict": verdict.value,
-            "confidence": result.confidence,
-            "final_score": final_score,
-            "entities": ner_result.to_dict(),
-            "claim_used": claim_result.claim,
-        })
+        from firebase_client import save_verification
+        saved = await save_verification(history_entry)
+        if not saved:
+            # Firestore unavailable — fall back to in-memory store
+            from api.routes.history import record_verification
+            record_verification(history_entry)
     except Exception as e:
         logger.warning("Failed to record history: %s", e)
+        try:
+            from api.routes.history import record_verification
+            record_verification(history_entry)
+        except Exception:
+            pass
 
     return result

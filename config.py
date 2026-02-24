@@ -28,10 +28,11 @@ class Settings(BaseSettings):
     app_env: str = "development"
     debug: bool = True
     log_level: str = "INFO"
-    allowed_origins: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-    ]
+    allowed_origins: str = "http://localhost:3000,http://localhost:5173"
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
     # ── ML Models ─────────────────────────────────────────────────────────────
     ml_model_name: str = "xlm-roberta-base"

@@ -5,6 +5,9 @@ python-multipart==0.0.17          # File upload support
 pydantic==2.9.2
 pydantic-settings==2.6.1
 
+# ── Firebase ──────────────────────────────────────────────────────────────────
+firebase-admin==6.6.0             # Firestore + Admin SDK
+
 # ── NLP & ML ──────────────────────────────────────────────────────────────────
 transformers==4.46.3
 torch==2.5.1
