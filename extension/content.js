@@ -20,17 +20,49 @@
   /** Minimum text length to send for verification (avoids verifying 1-word posts) */
   const MIN_TEXT_LENGTH = 40
 
-  /**
-   * Facebook feed post selectors — ordered by reliability.
-   * Facebook's class names are obfuscated; structural role/data attributes are
-   * more stable across renames.
-   */
-  const POST_SELECTORS = [
-    '[data-pagelet^="FeedUnit"]',
-    '[data-pagelet^="GroupsFeedUnit"]',
-    '[role="article"]',
-    '[data-testid="post_message"]',
-  ]
+  // Detect which platform we're on
+  const PLATFORM = (() => {
+    const h = window.location.hostname
+    if (h.includes('facebook.com')) return 'facebook'
+    if (h.includes('x.com') || h.includes('twitter.com')) return 'twitter'
+    return 'news'
+  })()
+
+  const IS_SOCIAL = PLATFORM === 'facebook' || PLATFORM === 'twitter'
+
+  const PLATFORM_CFG = {
+    facebook: {
+      post: [
+        '[data-pagelet^="FeedUnit"]',
+        '[data-pagelet^="GroupsFeedUnit"]',
+        '[role="article"]',
+        '[data-testid="post_message"]',
+      ],
+      text: ['[data-ad-comet-preview="message"]', '[data-testid="post_message"]', '[dir="auto"]'],
+      image: 'img[src*="fbcdn"]',
+      link: ['a[href*="l.facebook.com/l.php"]', 'a[role="link"][href*="http"]'],
+      unwrapUrl(el) {
+        try { return new URL(el.href).searchParams.get('u') || el.href } catch { return el.href }
+      },
+    },
+    twitter: {
+      post: ['article[data-testid="tweet"]'],
+      text: ['[data-testid="tweetText"]'],
+      image: 'img[src*="pbs.twimg.com/media"]',
+      link: ['a[href*="t.co/"]', 'a[data-testid="card.layoutSmall.media"]'],
+      unwrapUrl(el) { return el.href },
+    },
+    news: {
+      post: ['[role="article"]', 'article', 'main'],
+      text: ['h1', '.article-body', '.entry-content', 'article'],
+      image: null,
+      link: [],
+      unwrapUrl(el) { return el.href },
+    },
+  }
+
+  const CFG = PLATFORM_CFG[PLATFORM] ?? PLATFORM_CFG.facebook
+  const POST_SELECTORS = CFG.post
 
   const VERDICT_COLORS = {
     'Credible':    '#16a34a',
