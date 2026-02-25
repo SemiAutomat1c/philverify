@@ -32,11 +32,14 @@
 
   const PLATFORM_CFG = {
     facebook: {
+      // data-pagelet attrs are structural and stable — they only exist on feed posts,
+      // NOT on comments. [role="article"] matches both posts AND comment items so
+      // we keep it only as a last resort with extra filtering in findPosts().
       post: [
         '[data-pagelet^="FeedUnit"]',
         '[data-pagelet^="GroupsFeedUnit"]',
+        '[data-pagelet^="ProfileTimeline"]',
         '[role="article"]',
-        '[data-testid="post_message"]',
       ],
       text: ['[data-ad-comet-preview="message"]', '[data-testid="post_message"]', '[dir="auto"]'],
       image: 'img[src*="fbcdn"]',
@@ -370,8 +373,18 @@
 
   function findPosts(root) {
     for (const sel of POST_SELECTORS) {
-      const found = root.querySelectorAll(sel)
-      if (found.length) return found
+      const found = Array.from(root.querySelectorAll(sel))
+      if (!found.length) continue
+
+      // For [role="article"] on Facebook we must filter out comment items.
+      // A comment article is always nested inside a parent [role="article"].
+      if (PLATFORM === 'facebook' && sel === '[role="article"]') {
+        const topLevel = found.filter(el => !el.parentElement?.closest('[role="article"]'))
+        if (topLevel.length) return topLevel
+        continue
+      }
+
+      return found
     }
     return []
   }
@@ -380,9 +393,15 @@
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (node.nodeType !== 1) continue   // element nodes only
-        // Check if the node itself matches
+        // Check if the node itself matches a post selector
         for (const sel of POST_SELECTORS) {
-          if (node.matches?.(sel)) { scheduleProcess(node); break }
+          if (node.matches?.(sel)) {
+            // Skip comment articles on Facebook
+            if (PLATFORM === 'facebook' && sel === '[role="article"]'
+                && node.parentElement?.closest('[role="article"]')) break
+            scheduleProcess(node)
+            break
+          }
         }
         // Check descendants
         const posts = findPosts(node)
