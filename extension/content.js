@@ -66,22 +66,13 @@
   }
 
   function extractPostText(post) {
-    // Try common post message containers
-    const msgSelectors = [
-      '[data-ad-preview="message"]',
-      '[data-testid="post_message"]',
-      '[dir="auto"] > div > div > div > span',
-      'div[style*="text-align"] span',
-    ]
-    for (const sel of msgSelectors) {
+    for (const sel of CFG.text) {
       const el = post.querySelector(sel)
-      if (el?.innerText?.trim().length >= MIN_TEXT_LENGTH) {
+      if (el?.innerText?.trim().length >= MIN_TEXT_LENGTH)
         return el.innerText.trim().slice(0, 2000)
-      }
     }
-    // Fallback: gather all text spans ≥ MIN_TEXT_LENGTH chars
-    const spans = Array.from(post.querySelectorAll('span'))
-    for (const span of spans) {
+    // Fallback: any span with substantial text
+    for (const span of post.querySelectorAll('span')) {
       const t = span.innerText?.trim()
       if (t && t.length >= MIN_TEXT_LENGTH && !t.startsWith('http')) return t.slice(0, 2000)
     }
@@ -89,25 +80,25 @@
   }
 
   function extractPostUrl(post) {
-    // Shared article links
-    const linkSelectors = [
-      'a[href*="l.facebook.com/l.php"]',       // Facebook link wrapper
-      'a[target="_blank"][href^="https"]',       // Direct external links
-      'a[aria-label][href*="facebook.com/watch"]', // Videos
-    ]
-    for (const sel of linkSelectors) {
+    for (const sel of CFG.link) {
       const el = post.querySelector(sel)
-      if (el?.href) {
-        try {
-          const u = new URL(el.href)
-          const dest = u.searchParams.get('u')  // Unwrap l.facebook.com redirect
-          return dest || el.href
-        } catch {
-          return el.href
-        }
-      }
+      if (el?.href) return CFG.unwrapUrl(el)
     }
     return null
+  }
+
+  /** Returns the src of the most prominent image in a post, or null. */
+  function extractPostImage(post) {
+    if (!CFG.image) return null
+    // Prefer largest image by rendered width
+    const imgs = Array.from(post.querySelectorAll(CFG.image))
+    if (!imgs.length) return null
+    const best = imgs.reduce((a, b) =>
+      (b.naturalWidth || b.width || 0) > (a.naturalWidth || a.width || 0) ? b : a
+    )
+    const src = best.src || best.dataset?.src
+    if (!src || !src.startsWith('http')) return null
+    return src
   }
 
   function genPostId(post) {
@@ -234,20 +225,25 @@
   }
 
   function injectBadgeIntoPost(post, result) {
-    // Find a stable injection point near the post actions bar
-    const actionBar = post.querySelector('[data-testid="UFI2ReactionsCount/root"]')
-      ?? post.querySelector('[aria-label*="reaction"]')
-      ?? post.querySelector('[role="toolbar"]')
-      ?? post
+    // Find a stable injection point — platform-specific
+    let anchor = null
+    if (PLATFORM === 'facebook') {
+      anchor = post.querySelector('[data-testid="UFI2ReactionsCount/root"]')
+        ?? post.querySelector('[aria-label*="reaction"]')
+        ?? post.querySelector('[role="toolbar"]')
+    } else if (PLATFORM === 'twitter') {
+      // Tweet action bar (reply / retweet / like row)
+      anchor = post.querySelector('[role="group"][aria-label]')
+        ?? post.querySelector('[data-testid="reply"]')?.closest('[role="group"]')
+    }
 
     const container = document.createElement('div')
     container.className = 'pv-badge-wrap'
     const badge = createBadge(result.verdict, result.final_score, result)
     container.appendChild(badge)
 
-    // Insert before the action bar, or append inside the post
-    if (actionBar && actionBar !== post) {
-      actionBar.insertAdjacentElement('beforebegin', container)
+    if (anchor && anchor !== post) {
+      anchor.insertAdjacentElement('beforebegin', container)
     } else {
       post.appendChild(container)
     }
@@ -276,19 +272,30 @@
     const id = genPostId(post)
     post.dataset.philverify = id
 
-    const text = extractPostText(post)
-    const url  = extractPostUrl(post)
+    const text  = extractPostText(post)
+    const url   = extractPostUrl(post)
+    const image = extractPostImage(post)
 
-    if (!text && !url) return              // nothing to verify
+    // Need at least one signal to verify
+    if (!text && !url && !image) return
 
     const loader = injectLoadingBadge(post)
 
     try {
+      let msgPayload
+      if (url) {
+        // A shared article link is the most informative signal
+        msgPayload = { type: 'VERIFY_URL', url }
+      } else if (text) {
+        // Caption / tweet text
+        msgPayload = { type: 'VERIFY_TEXT', text }
+      } else {
+        // Image-only post — send to OCR endpoint
+        msgPayload = { type: 'VERIFY_IMAGE_URL', imageUrl: image }
+      }
+
       const response = await new Promise((resolve, reject) => {
-        const msg = url
-          ? { type: 'VERIFY_URL', url  }
-          : { type: 'VERIFY_TEXT', text }
-        chrome.runtime.sendMessage(msg, (resp) => {
+        chrome.runtime.sendMessage(msgPayload, (resp) => {
           if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message))
           else if (!resp?.ok)           reject(new Error(resp?.error ?? 'Unknown error'))
           else                          resolve(resp.result)
@@ -299,12 +306,11 @@
       injectBadgeIntoPost(post, response)
     } catch (err) {
       loader.remove()
-      // Show a muted error indicator — don't block reading
       const errBadge = document.createElement('div')
       errBadge.className = 'pv-badge-wrap'
       const errInner = document.createElement('div')
       errInner.className = 'pv-badge pv-badge--error'
-      errInner.title = err.message   // .title setter is XSS-safe
+      errInner.title = err.message
       errInner.textContent = '⚠ PhilVerify offline'
       errBadge.appendChild(errInner)
       post.appendChild(errBadge)
@@ -373,11 +379,9 @@
 
   init()
 
-  // ── Auto-verify news article pages (non-Facebook) ─────────────────────────
+  // ── Auto-verify news article pages (non-social) ────────────────────────────
   // When the content script runs on a PH news site (not the homepage),
   // it auto-verifies the current URL and injects a floating verdict banner.
-
-  const IS_FACEBOOK = window.location.hostname.includes('facebook.com')
 
   async function autoVerifyPage() {
     const url  = window.location.href
@@ -472,7 +476,7 @@
     }
   }
 
-  if (!IS_FACEBOOK) {
+  if (!IS_SOCIAL) {
     autoVerifyPage()
   }
   chrome.storage.onChanged.addListener((changes, area) => {

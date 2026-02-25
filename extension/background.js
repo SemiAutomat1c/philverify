@@ -122,6 +122,29 @@ async function verifyUrl(url) {
   return result
 }
 
+async function verifyImageUrl(imageUrl) {
+  const key = 'img_' + await sha256prefix(imageUrl)
+  const hit = await getCached(key)
+  if (hit) return { ...hit, _fromCache: true }
+
+  const { apiBase } = await getSettings()
+  const imgRes = await fetch(imageUrl)
+  if (!imgRes.ok) throw new Error(`Could not fetch image: ${imgRes.status}`)
+  const blob = await imgRes.blob()
+  const ct  = imgRes.headers.get('content-type') ?? 'image/jpeg'
+  const ext = ct.includes('png') ? 'png' : ct.includes('webp') ? 'webp' : 'jpg'
+  const formData = new FormData()
+  formData.append('file', blob, `image.${ext}`)
+  const res = await fetch(`${apiBase}/verify/image`, { method: 'POST', body: formData })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail ?? `API error ${res.status}`)
+  }
+  const result = await res.json()
+  await setCached(key, result, imageUrl)
+  return result
+}
+
 // ── Message handler ───────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -139,6 +162,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return false
       }
       verifyUrl(msg.url)
+        .then(r  => sendResponse({ ok: true,  result: r }))
+        .catch(e => sendResponse({ ok: false, error: e.message }))
+      return true
+
+    case 'VERIFY_IMAGE_URL':
+      if (!isHttpUrl(msg.imageUrl)) {
+        sendResponse({ ok: false, error: 'Invalid image URL' })
+        return false
+      }
+      verifyImageUrl(msg.imageUrl)
         .then(r  => sendResponse({ ok: true,  result: r }))
         .catch(e => sendResponse({ ok: false, error: e.message }))
       return true
