@@ -1,5 +1,15 @@
 {
-  "projects": {},
-  "targets": {},
+  "projects": {
+    "default": "philverify"
+  },
+  "targets": {
+    "philverify": {
+      "hosting": {
+        "philverify": [
+          "philverify"
+        ]
+      }
+    }
+  },
   "etags": {}
 }

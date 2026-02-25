@@ -1,6 +1,7 @@
 """
 PhilVerify — Unit Tests
-Covers: text preprocessor, language detector, clickbait detector, and scoring engine.
+Covers: text preprocessor, language detector, clickbait detector, scoring engine,
+        and Phase 5 evidence modules (similarity, stance detection, domain credibility).
 Run: pytest tests/ -v
 """
 import sys
@@ -179,3 +180,132 @@ class TestScoringEngine:
             input_type="text",
         )
         assert result.entities is not None
+
+
+# ── Phase 5: Domain Credibility ───────────────────────────────────────────────
+
+class TestDomainCredibility:
+    def setup_method(self):
+        from evidence.domain_credibility import lookup_domain, extract_domain, is_blacklisted, DomainTier
+        self.lookup = lookup_domain
+        self.extract = extract_domain
+        self.is_blacklisted = is_blacklisted
+        self.DomainTier = DomainTier
+
+    def test_rappler_is_tier1(self):
+        result = self.lookup("https://www.rappler.com/news/something")
+        assert result.tier == self.DomainTier.CREDIBLE
+
+    def test_inquirer_is_tier1(self):
+        result = self.lookup("inquirer.net")
+        assert result.tier == self.DomainTier.CREDIBLE
+
+    def test_known_fake_is_tier4(self):
+        result = self.lookup("duterte.news")
+        assert result.tier == self.DomainTier.KNOWN_FAKE
+
+    def test_unknown_domain_is_tier3(self):
+        result = self.lookup("some-totally-random-blog.ph")
+        assert result.tier == self.DomainTier.SUSPICIOUS
+
+    def test_blacklisted_returns_true(self):
+        assert self.is_blacklisted("maharlikanews.com") is True
+
+    def test_rappler_not_blacklisted(self):
+        assert self.is_blacklisted("rappler.com") is False
+
+    def test_extract_domain_strips_www(self):
+        assert self.extract("https://www.gmanetwork.com/news/story") == "gmanetwork.com"
+
+    def test_tier1_score_adjustment_positive(self):
+        result = self.lookup("rappler.com")
+        assert result.score_adjustment > 0
+
+    def test_tier4_score_adjustment_negative(self):
+        result = self.lookup("pinoyakoblog.com")
+        assert result.score_adjustment < 0
+
+
+# ── Phase 5: Similarity ───────────────────────────────────────────────────────
+
+class TestSimilarity:
+    def setup_method(self):
+        from evidence.similarity import compute_similarity, _jaccard_similarity, rank_articles_by_similarity
+        self.compute = compute_similarity
+        self.jaccard = _jaccard_similarity
+        self.rank = rank_articles_by_similarity
+
+    def test_identical_texts_score_1(self):
+        score = self.jaccard("free vaccines available now", "free vaccines available now")
+        assert score == 1.0
+
+    def test_unrelated_texts_low_score(self):
+        score = self.jaccard("banana pancakes recipe", "supreme court ruling on property tax")
+        assert score < 0.2
+
+    def test_empty_claim_returns_0(self):
+        assert self.compute("", "some article text") == 0.0
+
+    def test_score_in_range(self):
+        score = self.compute("government hid truth about vaccines", "vaccine rollout delayed by officials")
+        assert 0.0 <= score <= 1.0
+
+    def test_rank_articles_sorted_desc(self):
+        articles = [
+            {"title": "Banana split recipe tips", "description": ""},
+            {"title": "Government vaccine program expanded", "description": "DOH announces rollout"},
+            {"title": "COVID vaccination drive update", "description": "Metro Manila sites open"},
+        ]
+        ranked = self.rank("vaccine rollout in Metro Manila", articles)
+        similarities = [a["similarity"] for a in ranked]
+        assert similarities == sorted(similarities, reverse=True)
+
+
+# ── Phase 5: Stance Detection ─────────────────────────────────────────────────
+
+class TestStanceDetector:
+    def setup_method(self):
+        from evidence.stance_detector import detect_stance, Stance
+        self.detect = detect_stance
+        self.Stance = Stance
+
+    def test_refutation_keywords_trigger_refutes(self):
+        result = self.detect(
+            claim="Government distributed free rice to all families",
+            article_title="FACT CHECK: False — No free rice distribution was authorized",
+            article_description="Officials confirmed no such program exists",
+            similarity=0.55,
+        )
+        assert result.stance == self.Stance.REFUTES
+
+    def test_low_similarity_returns_nei(self):
+        result = self.detect(
+            claim="Earthquake hits Mindanao",
+            article_title="Restaurant review: Best adobo in Quezon City",
+            article_description="Five star dining experience downtown",
+            similarity=0.05,
+        )
+        assert result.stance == self.Stance.NOT_ENOUGH_INFO
+
+    def test_fact_check_domain_returns_refutes(self):
+        result = self.detect(
+            claim="New law passed by senate",
+            article_title="Article about laws",
+            article_description="Senate session coverage",
+            article_url="https://vera-files.org/fact-check/123",
+            similarity=0.40,
+        )
+        assert result.stance == self.Stance.REFUTES
+
+    def test_confidence_in_range(self):
+        result = self.detect(
+            claim="DOH confirms new disease outbreak",
+            article_title="DOH official statement on health alert confirmed",
+            article_description="Health officials verified the outbreak in Metro Manila",
+            similarity=0.60,
+        )
+        assert 0.0 <= result.confidence <= 1.0
+
+    def test_result_has_reason(self):
+        result = self.detect("Some claim", "Some title", "Some description", similarity=0.30)
+        assert isinstance(result.reason, str) and len(result.reason) > 0

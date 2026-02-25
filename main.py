@@ -15,6 +15,7 @@ from config import get_settings
 from api.routes.verify import router as verify_router
 from api.routes.history import router as history_router
 from api.routes.trends import router as trends_router
+from api.routes.preview import router as preview_router
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -90,11 +91,17 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-# ── Routers ───────────────────────────────────────────────────────────────────
+# ── Routers (all under /api so Firebase Hosting rewrite ↔ Cloud Run match) ────
+# Frontend calls /api/verify/..., Firebase Hosting forwards full path to Cloud Run.
+# In dev, Vite proxy forwards /api/... directly without stripping — so same prefix.
 
-app.include_router(verify_router)
-app.include_router(history_router)
-app.include_router(trends_router)
+from fastapi import APIRouter as _APIRouter
+_api = _APIRouter(prefix="/api")
+_api.include_router(verify_router)
+_api.include_router(history_router)
+_api.include_router(trends_router)
+_api.include_router(preview_router)
+app.include_router(_api)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
@@ -109,7 +116,9 @@ async def root():
     }
 
 
+# Cloud Run health check (no /api prefix so load balancer can reach it)
 @app.get("/health", tags=["Health"])
+@app.get("/api/health", tags=["Health"])
 async def health():
     return {"status": "ok", "env": settings.app_env}
 

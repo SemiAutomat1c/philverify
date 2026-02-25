@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PhilVerify</title>
+  <style>
+    /* ── Reset ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Design tokens (mirrors dashboard) ──────────── */
+    :root {
+      --bg-base:      #0d0d0d;
+      --bg-surface:   #141414;
+      --bg-elevated:  #1c1c1c;
+      --bg-hover:     #222;
+      --border:       rgba(245,240,232,0.07);
+      --border-light: rgba(245,240,232,0.14);
+      --accent-red:   #dc2626;
+      --accent-gold:  #d97706;
+      --accent-cyan:  #06b6d4;
+      --credible:     #16a34a;
+      --unverified:   #d97706;
+      --fake:         #dc2626;
+      --text-primary:   #f5f0e8;
+      --text-secondary: #a89f94;
+      --text-muted:     #5c554e;
+      --font-display:   'Syne', system-ui, sans-serif;
+      --font-mono:      'JetBrains Mono', monospace;
+    }
+
+    html { color-scheme: dark; }
+
+    body {
+      width: 340px;
+      min-height: 200px;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 12px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Navbar ──────────────────────────────────────── */
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: 0.06em;
+    }
+    .logo span { color: var(--accent-red); }
+
+    /* ── Tab bar ─────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      flex: 1;
+      padding: 10px 0;
+      min-height: 40px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      touch-action: manipulation;
+    }
+    .tab.active {
+      color: var(--text-primary);
+      border-bottom-color: var(--accent-red);
+    }
+    .tab:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: -2px; }
+
+    /* ── Panels ──────────────────────────────────────── */
+    .panel { display: none; padding: 12px 14px; }
+    .panel.active { display: block; }
+
+    /* ── Verify panel ────────────────────────────────── */
+    .current-url {
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 10px;
+      font-family: var(--font-mono);
+    }
+
+    textarea {
+      width: 100%;
+      resize: none;
+      padding: 8px 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      font-size: 11px;
+      font-family: inherit;
+      border-radius: 2px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+      field-sizing: content;
+      min-height: 60px;
+    }
+    textarea:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent-red);
+      border-color: var(--accent-red);
+    }
+
+    .btn-verify {
+      width: 100%;
+      padding: 8px;
+      background: var(--accent-red);
+      color: #fff;
+      border: none;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 2px;
+      min-height: 44px;
+      touch-action: manipulation;
+    }
+    .btn-verify:disabled {
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+    .btn-verify:focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 2px; }
+
+    /* ── Result card ─────────────────────────────────── */
+    .result {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+    .result-verdict {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+    }
+    .result-score {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    .result-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .result-val {
+      font-size: 10px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+    .result-source {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+    }
+    .result-source a {
+      color: var(--accent-cyan);
+      font-size: 10px;
+      text-decoration: none;
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .result-source a:hover { text-decoration: underline; }
+    .open-full {
+      display: block;
+      text-align: center;
+      margin-top: 8px;
+      color: var(--accent-red);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 4px;
+      border: 1px solid rgba(220,38,38,0.3);
+      border-radius: 2px;
+    }
+    .open-full:hover { background: rgba(220,38,38,0.08); }
+
+    /* ── Loading / error states ──────────────────────── */
+    .state-loading, .state-error, .state-empty {
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+    .state-error { color: #f87171; }
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(168,159,148,0.2);
+      border-top-color: var(--text-muted);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-bottom: 8px;
+    }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── History panel ───────────────────────────────── */
+    .history-list { display: flex; flex-direction: column; gap: 6px; }
+    .history-item {
+      padding: 8px 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: default;
+    }
+    .history-item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+    .history-verdict {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .history-score {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+    .history-preview {
+      font-size: 10px;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .history-time {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── Settings panel ──────────────────────────────── */
+    .setting-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .setting-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .setting-input {
+      width: 100%;
+      padding: 8px 10px;
+      min-height: 36px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      font-size: 11px;
+      font-family: var(--font-mono);
+      border-radius: 2px;
+    }
+    .setting-input:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent-cyan);
+    }
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .toggle-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .toggle {
+      position: relative;
+      width: 32px;
+      height: 18px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 18px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: var(--accent-red); border-color: var(--accent-red); }
+    @media (prefers-reduced-motion: reduce) {
+      .toggle-track,
+      .toggle-track::after { transition: none; }
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      left: 2px; top: 2px;
+      width: 12px; height: 12px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle input:checked + .toggle-track::after { transform: translateX(14px); }
+    .btn-save {
+      width: 100%;
+      padding: 7px;
+      min-height: 36px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-light);
+      color: var(--text-secondary);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 2px;
+      touch-action: manipulation;
+    }
+    .btn-save:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+    .btn-save:focus-visible { outline: 2px solid var(--accent-cyan); }
+    .saved-flash {
+      text-align: center;
+      color: var(--credible);
+      font-size: 10px;
+      margin-top: 6px;
+      height: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar" role="banner">
+    <div class="logo">PHIL<span>VERIFY</span></div>
+    <div id="live-dot" style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text-muted);font-weight:700;letter-spacing:0.1em;">
+      <span id="api-status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text-muted);" aria-hidden="true"></span>
+      <span id="api-status-label">CHECKING…</span>
+    </div>
+  </nav>
+
+  <!-- Tabs -->
+  <div class="tabs" role="tablist" aria-label="PhilVerify sections">
+    <button class="tab active" role="tab" aria-selected="true" aria-controls="panel-verify" id="tab-verify" data-tab="verify">Verify</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-history" id="tab-history" data-tab="history">History</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-settings" id="tab-settings" data-tab="settings">Settings</button>
+  </div>
+
+  <!-- ── Verify Panel ── -->
+  <div class="panel active" id="panel-verify" role="tabpanel" aria-labelledby="tab-verify">
+    <p class="current-url" id="current-url" title="">Loading current URL…</p>
+    <textarea
+      id="verify-input"
+      name="claim-text"
+      placeholder="Paste text or URL to fact-check…"
+      rows="3"
+      aria-label="Text or URL to verify"
+      autocomplete="off"
+      spellcheck="true"
+    ></textarea>
+    <button class="btn-verify" id="btn-verify" type="button" aria-busy="false">
+      Verify Claim
+    </button>
+    <div id="verify-result" aria-live="polite" aria-atomic="true"></div>
+  </div>
+
+  <!-- ── History Panel ── -->
+  <div class="panel" id="panel-history" role="tabpanel" aria-labelledby="tab-history">
+    <div id="history-container">
+      <div class="state-empty">No verifications yet — use the Verify tab or browse Facebook.</div>
+    </div>
+  </div>
+
+  <!-- ── Settings Panel ── -->
+  <div class="panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings">
+    <div class="setting-row">
+      <label class="setting-label" for="api-base">Backend API URL</label>
+      <input
+        class="setting-input"
+        id="api-base"
+        name="api-base"
+        type="url"
+        autocomplete="url"
+        placeholder="http://localhost:8000"
+        aria-describedby="api-base-hint"
+      >
+      <span id="api-base-hint" style="font-size:9px;color:var(--text-muted);">
+        Default: http://localhost:8000 — change for production deployment.
+      </span>
+    </div>
+    <div class="toggle-row">
+      <label for="auto-scan" class="toggle-label">Auto-scan Facebook feed</label>
+      <label class="toggle">
+        <input type="checkbox" id="auto-scan" name="auto-scan" checked>
+        <span class="toggle-track" aria-hidden="true"></span>
+      </label>
+    </div>
+    <button class="btn-save" id="btn-save" type="button">Save Settings</button>
+    <div class="saved-flash" id="saved-flash" aria-live="polite"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

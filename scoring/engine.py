@@ -19,6 +19,18 @@ from api.schemas import (
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+# ── Module-level NLP singleton cache ─────────────────────────────────────────
+# These are created once per process and reused across all requests.
+# Creating fresh instances on every request causes unnecessary model reloads
+# from disk (300–500 ms each) which compounds into multi-second latency.
+_nlp_cache: dict = {}
+
+def _get_nlp(key: str, factory):
+    """Return cached NLP instance, creating via factory() on first call."""
+    if key not in _nlp_cache:
+        _nlp_cache[key] = factory()
+    return _nlp_cache[key]
+
 # ── Domain credibility lookup ─────────────────────────────────────────────────
 _DOMAIN_DB_PATH = Path(__file__).parent.parent / "domain_credibility.json"
 _DOMAIN_DB: dict = {}
@@ -68,23 +80,22 @@ async def run_verification(
     from nlp.sentiment import SentimentAnalyzer
     from nlp.clickbait import ClickbaitDetector
     from nlp.claim_extractor import ClaimExtractor
-    from ml.tfidf_classifier import TFIDFClassifier
     from evidence.news_fetcher import fetch_evidence, compute_similarity
 
     # ── Step 1: Preprocess ────────────────────────────────────────────────────
-    preprocessor = TextPreprocessor()
+    preprocessor = _get_nlp("preprocessor", TextPreprocessor)
     proc = preprocessor.preprocess(text)
 
     # ── Step 2: Language detection ────────────────────────────────────────────
-    lang_detector = LanguageDetector()
+    lang_detector = _get_nlp("lang_detector", LanguageDetector)
     lang_result = lang_detector.detect(text)
     language = Language(lang_result.language) if lang_result.language in Language._value2member_map_ else Language.TAGLISH
 
     # ── Steps 3–6: NLP analysis (run concurrently) ───────────────────────────
-    ner_extractor = EntityExtractor()
-    sentiment_analyzer = SentimentAnalyzer()
-    clickbait_detector = ClickbaitDetector()
-    claim_extractor = ClaimExtractor()
+    ner_extractor    = _get_nlp("ner_extractor",    EntityExtractor)
+    sentiment_analyzer = _get_nlp("sentiment",      SentimentAnalyzer)
+    clickbait_detector = _get_nlp("clickbait",      ClickbaitDetector)
+    claim_extractor  = _get_nlp("claim_extractor",  ClaimExtractor)
 
     ner_result = ner_extractor.extract(text)
     sentiment_result = sentiment_analyzer.analyze(proc.cleaned)
@@ -92,9 +103,29 @@ async def run_verification(
     claim_result = claim_extractor.extract(proc.cleaned)
 
     # ── Step 7: Layer 1 — ML Classifier ──────────────────────────────────────
-    classifier = TFIDFClassifier()
-    classifier.train()
+    # Try fine-tuned XLM-RoBERTa first; fall back to TF-IDF baseline if the
+    # checkpoint hasn't been generated yet (ml/train_xlmr.py not yet run).
+    model_tier = "xlmr"  # for observability in logs
+    try:
+        from ml.xlm_roberta_classifier import XLMRobertaClassifier, ModelNotFoundError
+        classifier = _get_nlp("xlmr_classifier", XLMRobertaClassifier)
+    except ModelNotFoundError:
+        logger.info("XLM-RoBERTa checkpoint not found — falling back to TF-IDF baseline")
+        from ml.tfidf_classifier import TFIDFClassifier
+        def _make_tfidf():
+            c = TFIDFClassifier(); c.train(); return c
+        classifier = _get_nlp("tfidf_classifier", _make_tfidf)
+        model_tier = "tfidf"
+    except Exception as exc:
+        logger.warning("XLM-RoBERTa load failed (%s) — falling back to TF-IDF", exc)
+        from ml.tfidf_classifier import TFIDFClassifier
+        def _make_tfidf():  # noqa: F811
+            c = TFIDFClassifier(); c.train(); return c
+        classifier = _get_nlp("tfidf_classifier", _make_tfidf)
+        model_tier = "tfidf"
+
     l1 = classifier.predict(proc.cleaned)
+    logger.debug("Layer-1 (%s): %s %.1f%%", model_tier, l1.verdict, l1.confidence)
 
     # Enrich triggered features with NLP signals
     if clickbait_result.is_clickbait:
@@ -109,13 +140,30 @@ async def run_verification(
     )
 
     # ── Step 8: Layer 2 — Evidence Retrieval ──────────────────────────────────
-    evidence_score = 50.0  # Neutral default when API key absent
+    # Default evidence score depends on source domain tier when no API key is set:
+    #   Tier 1 (Inquirer, GMA, Rappler…) → 65  – known credible, not neutral
+    #   Tier 2 (satire/opinion)           → 45  – slight skepticism
+    #   Tier 3 (unknown)                  → 50  – neutral
+    #   Tier 4 (blacklisted)              → 25  – heavy prior against
+    _src_tier_pre = get_domain_tier(source_domain) if source_domain else None
+    _EVIDENCE_DEFAULTS: dict = {
+        DomainTier.CREDIBLE:       65.0,
+        DomainTier.SATIRE_OPINION: 45.0,
+        DomainTier.SUSPICIOUS:     50.0,
+        DomainTier.KNOWN_FAKE:     25.0,
+    }
+    evidence_score = _EVIDENCE_DEFAULTS.get(_src_tier_pre, 50.0) if _src_tier_pre else 50.0
     evidence_sources: list[EvidenceSource] = []
     l2_verdict = Verdict.UNVERIFIED
 
     if settings.news_api_key:
         try:
-            articles = await fetch_evidence(claim_result.claim, settings.news_api_key)
+            query_entities = ner_result.persons + ner_result.organizations + ner_result.locations
+            articles = await fetch_evidence(
+                claim_result.claim, 
+                settings.news_api_key, 
+                entities=query_entities
+            )
             for art in articles[:5]:
                 article_text = f"{art.get('title', '')} {art.get('description', '')}"
                 sim = compute_similarity(claim_result.claim, article_text)
@@ -166,10 +214,47 @@ async def run_verification(
     # ML confidence is 0-100 where high = more credible for the predicted class.
     # Adjust: if ML says Fake, its confidence works against credibility.
     ml_credibility = l1.confidence if l1.verdict == "Credible" else (100 - l1.confidence)
-    final_score = round(
-        (ml_credibility * settings.ml_weight) + (evidence_score * settings.evidence_weight),
-        1,
-    )
+    base_score = (ml_credibility * settings.ml_weight) + (evidence_score * settings.evidence_weight)
+
+    # Domain credibility adjustment — applied when we know the source URL.
+    # The adjustment scales with how much ML disagrees with the domain tier:
+    #   - Tier 1 source but ML says Fake at high confidence → bigger boost needed
+    #   - Tier 4 source but ML says Credible at high confidence → bigger penalty
+    # Base adjustments are scaled up by a "disagreement multiplier" (1.0–2.0)
+    # so that a 95%-confident ML prediction on a Tier 1 source still respects
+    # the fact that the article came from a verified outlet.
+    domain_tier = get_domain_tier(source_domain) if source_domain else None
+    domain_adjustment = 0.0
+    if domain_tier is not None:
+        _BASE_ADJ = {
+            DomainTier.CREDIBLE:       +20.0,   # Tier 1 — established PH news orgs
+            DomainTier.SATIRE_OPINION:  -5.0,   # Tier 2 — satire / opinion blogs
+            DomainTier.SUSPICIOUS:     -10.0,   # Tier 3 — unknown / unverified
+            DomainTier.KNOWN_FAKE:     -35.0,   # Tier 4 — blacklisted
+        }
+        base_adj = _BASE_ADJ.get(domain_tier, 0.0)
+
+        # Disagreement multiplier: how much does ML diverge from what the domain implies?
+        # Tier 1 implies credible (75), Tier 4 implies fake (25); others neutral (50)
+        _TIER_IMPLIED_SCORE = {
+            DomainTier.CREDIBLE: 75.0,
+            DomainTier.SATIRE_OPINION: 50.0,
+            DomainTier.SUSPICIOUS: 50.0,
+            DomainTier.KNOWN_FAKE: 25.0,
+        }
+        implied = _TIER_IMPLIED_SCORE.get(domain_tier, 50.0)
+        disagreement = abs(ml_credibility - implied) / 50.0   # 0.0 – 1.0+, capped below
+        multiplier = min(1.5, 1.0 + disagreement * 0.5)      # 1.0 (agree) → 1.5 (hard disagree)
+
+        domain_adjustment = base_adj * multiplier
+        logger.info(
+            "Domain credibility: %s (Tier %s) base=%+.0f × multiplier=%.2f → %+.1f pts  "
+            "(ml_credibility=%.1f, implied=%.0f)",
+            source_domain, domain_tier.value, base_adj, multiplier, domain_adjustment,
+            ml_credibility, implied,
+        )
+
+    final_score = round(min(100.0, max(0.0, base_score + domain_adjustment)), 1)
     verdict = _map_verdict(final_score)
 
     # ── Step 10: Assemble response ────────────────────────────────────────────

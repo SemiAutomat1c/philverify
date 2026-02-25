@@ -22,10 +22,20 @@ build/
 # OS
 .DS_Store
 
-# ML models (too large for git)
+# ML models (too large for git — use DVC or download separately)
 ml/models/*.pkl
 ml/models/*.bin
 ml/models/*.pt
+ml/models/*.safetensors
+ml/models/xlmr_model/
 serviceAccountKey.json
 *.json.key
 docs/*.json
+
+# Dataset pipeline — raw downloads & processed parquet (regenerate via dataset_builder.py)
+ml/data/raw/
+ml/data/processed/
+ml/_smoke_test.py
+
+# Local history persistence (user data — do not commit)
+data/history.json

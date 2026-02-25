@@ -10,8 +10,33 @@ from api.schemas import TrendsResponse, TrendingEntity, TrendingTopic, Verdict
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/trends", tags=["Trends"])
 
-# Reads from the same in-memory store as history (Phase 7 → DB aggregation).
-from api.routes.history import _HISTORY
+
+def _load_all_history() -> list[dict]:
+    """
+    Return all history records from the best available source:
+      1. Firestore  2. Local JSON file  3. In-memory list (fallback)
+    """
+    # Tier 1: Firestore
+    try:
+        from firebase_client import get_all_verifications_sync
+        records = get_all_verifications_sync()
+        if records:
+            return records
+    except Exception:
+        pass
+
+    # Tier 2: Local JSON file (persists across restarts)
+    try:
+        from api.routes.history import _load_history_file
+        records = _load_history_file()
+        if records:
+            return records
+    except Exception:
+        pass
+
+    # Tier 3: In-memory (empty after restart, but keeps current session data)
+    from api.routes.history import _HISTORY
+    return list(_HISTORY)
 
 
 @router.get(
@@ -26,13 +51,15 @@ async def get_trends(
 ) -> TrendsResponse:
     logger.info("GET /trends | days=%d", days)
 
+    all_history = _load_all_history()
+
     entity_counter: Counter = Counter()
     entity_type_map: dict[str, str] = {}
     entity_fake_counter: Counter = Counter()
     topic_counter: Counter = Counter()
     topic_verdict_map: dict[str, list[str]] = {}
 
-    for entry in _HISTORY:
+    for entry in all_history:
         is_fake = entry.get("verdict") in (Verdict.LIKELY_FAKE.value, Verdict.UNVERIFIED.value)
         entities = entry.get("entities", {})
 
@@ -81,4 +108,37 @@ async def get_trends(
         for topic, count in topic_counter.most_common(limit)
     ]
 
-    return TrendsResponse(top_entities=top_entities, top_topics=top_topics)
+    # ── Verdict distribution totals ───────────────────────────────────────────────
+    verdict_dist: dict[str, int] = {"Credible": 0, "Unverified": 0, "Likely Fake": 0}
+    day_map: dict[str, dict[str, int]] = {}   # date → {Credible, Unverified, Likely Fake}
+
+    for entry in all_history:
+        v = entry.get("verdict", "Unverified")
+        if v in verdict_dist:
+            verdict_dist[v] += 1
+
+        ts = entry.get("timestamp", "")
+        date_key = ts[:10] if ts else ""   # YYYY-MM-DD prefix
+        if date_key:
+            bucket = day_map.setdefault(date_key, {"Credible": 0, "Unverified": 0, "Likely Fake": 0})
+            if v in bucket:
+                bucket[v] += 1
+
+    from api.schemas import VerdictDayPoint
+    verdict_by_day = [
+        VerdictDayPoint(
+            date=d,
+            credible=day_map[d]["Credible"],
+            unverified=day_map[d]["Unverified"],
+            fake=day_map[d]["Likely Fake"],
+        )
+        for d in sorted(day_map.keys())
+    ]
+
+    return TrendsResponse(
+        top_entities=top_entities,
+        top_topics=top_topics,
+        verdict_distribution=verdict_dist,
+        verdict_by_day=verdict_by_day,
+    )
+

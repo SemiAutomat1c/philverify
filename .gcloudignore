@@ -1,0 +1,50 @@
+# .gcloudignore — Cloud Build source upload exclusions
+# gcloud builds submit uses this before creating the source tarball.
+# Patterns follow .gitignore syntax.
+
+# ── Heavy runtimes / caches ───────────────────────────────────────────────────
+venv/
+.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.cache/
+.pytest_cache/
+
+# ── Secrets (never upload) ────────────────────────────────────────────────────
+.env
+.env.*
+serviceAccountKey.json
+*.json.key
+
+# ── ML artefacts (large — Docker downloads from HuggingFace at build time) ───
+ml/models/
+ml/data/raw/
+ml/data/processed/
+ml/data/combined/
+
+# ── Frontend source & deps (built separately, not needed in Cloud Run) ───────
+frontend/node_modules/
+frontend/dist/
+
+# ── Dataset pipeline scripts (not needed at runtime) ─────────────────────────
+ml/data_sources/
+ml/train_*.py
+ml/dataset_builder.py
+ml/combined_dataset.py
+ml/_smoke_test.py
+
+# ── Tests & docs ──────────────────────────────────────────────────────────────
+tests/
+docs/
+
+# ── OS / editor ───────────────────────────────────────────────────────────────
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# ── Git ───────────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes

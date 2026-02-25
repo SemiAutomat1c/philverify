@@ -42,8 +42,8 @@ def get_firestore():
             cred = credentials.Certificate(str(_SERVICEACCOUNT_PATH))
             firebase_admin.initialize_app(cred)
             logger.info("Firebase initialized via service account key")
-        elif os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
-            # Cloud Run / GCE default credentials
+        elif os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or os.getenv("K_SERVICE"):
+            # Cloud Run (K_SERVICE is always set) or explicit ADC path
             cred = credentials.ApplicationDefault()
             firebase_admin.initialize_app(cred)
             logger.info("Firebase initialized via Application Default Credentials")
@@ -92,17 +92,36 @@ async def get_verifications(
     if db is None:
         return []
     try:
+        from google.cloud.firestore_v1.base_query import FieldFilter
         query = (
             db.collection("verifications")
             .order_by("timestamp", direction="DESCENDING")
         )
         if verdict_filter:
-            query = query.where("verdict", "==", verdict_filter)
+            query = query.where(filter=FieldFilter("verdict", "==", verdict_filter))
         docs = query.limit(limit + offset).stream()
         results = [doc.to_dict() for doc in docs]
         return results[offset : offset + limit]
     except Exception as e:
         logger.error("Firestore read error: %s", e)
+        return []
+
+
+def get_all_verifications_sync() -> list[dict]:
+    """Synchronously fetch ALL verification records from Firestore (used by trends aggregation)."""
+    db = get_firestore()
+    if db is None:
+        return []
+    try:
+        docs = (
+            db.collection("verifications")
+            .order_by("timestamp", direction="DESCENDING")
+            .limit(10_000)  # hard cap — more than enough for trends analysis
+            .stream()
+        )
+        return [doc.to_dict() for doc in docs]
+    except Exception as e:
+        logger.error("Firestore get_all_verifications_sync error: %s", e)
         return []
 
 
@@ -112,9 +131,10 @@ async def get_verification_count(verdict_filter: str | None = None) -> int:
     if db is None:
         return 0
     try:
+        from google.cloud.firestore_v1.base_query import FieldFilter
         query = db.collection("verifications")
         if verdict_filter:
-            query = query.where("verdict", "==", verdict_filter)
+            query = query.where(filter=FieldFilter("verdict", "==", verdict_filter))
         # Use aggregation query (Firestore native count)
         result = query.count().get()
         return result[0][0].value

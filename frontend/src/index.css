@@ -97,6 +97,13 @@ h4 {
   border-radius: 4px;
 }
 
+/* Textarea: use box-shadow ring for :focus-visible so keyboard users see focus;
+   border-color animation still handled by onFocus/onBlur JS handlers */
+.claim-textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-red);
+}
+
 /* ── Touch (web-design-guidelines) ───────────────────── */
 button,
 a,
@@ -161,7 +168,17 @@ a,
 /* ── Left-rule accent divider ────────────────────────── */
 .ruled {
   border-left: 3px solid var(--accent-red);
-  padding-left: 12px;
+  padding-left: 16px;
+}
+
+/* ── Nav link hover ──────────────────────────────────────── */
+a.nav-link-item {
+  text-decoration: none;
+  display: block;
+}
+
+a.nav-link-item:hover > div {
+  color: var(--text-primary) !important;
 }
 
 /* ── Animations (frontend-design: one orchestrated reveal) ─── */
@@ -221,6 +238,16 @@ a,
 
   .bar-fill {
     animation: barGrow 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+
+    100% {
+      transform: translateX(100%);
+    }
   }
 }
 

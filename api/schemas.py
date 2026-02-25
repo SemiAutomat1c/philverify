@@ -138,9 +138,24 @@ class TrendingTopic(BaseModel):
     dominant_verdict: Verdict
 
 
+class VerdictDayPoint(BaseModel):
+    date: str          # YYYY-MM-DD
+    credible: int = 0
+    unverified: int = 0
+    fake: int = 0
+
+
 class TrendsResponse(BaseModel):
     top_entities: list[TrendingEntity]
     top_topics: list[TrendingTopic]
+    verdict_distribution: dict[str, int] = Field(
+        default_factory=dict,
+        description="Counts per verdict: Credible, Unverified, Likely Fake",
+    )
+    verdict_by_day: list[VerdictDayPoint] = Field(
+        default_factory=list,
+        description="Day-by-day verdict counts for the area chart (last N days)",
+    )
 
 
 # ── Error ─────────────────────────────────────────────────────────────────────

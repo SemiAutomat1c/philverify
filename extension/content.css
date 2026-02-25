@@ -1,0 +1,190 @@
+/**
+ * PhilVerify — Content Script Styles
+ * Badge overlay injected into Facebook feed posts.
+ * All selectors are namespaced under .pv-* to avoid collisions.
+ */
+
+/* ── Badge wrapper ───────────────────────────────────────────────────────── */
+.pv-badge-wrap {
+  display: block;
+  margin: 6px 12px 2px;
+}
+
+.pv-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pv-badge:focus-visible {
+  outline: 2px solid #06b6d4;
+  outline-offset: 2px;
+}
+
+/* ── Loading state ───────────────────────────────────────────────────────── */
+.pv-badge--loading {
+  color: #a89f94;
+  border: 1px solid rgba(168, 159, 148, 0.2);
+  background: rgba(168, 159, 148, 0.06);
+  cursor: default;
+}
+
+.pv-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(168, 159, 148, 0.3);
+  border-top-color: #a89f94;
+  border-radius: 50%;
+  animation: pv-spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-spinner { animation: none; }
+}
+
+@keyframes pv-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Error state ─────────────────────────────────────────────────────────── */
+.pv-badge--error {
+  color: #78716c;
+  border: 1px solid rgba(120, 113, 108, 0.2);
+  background: transparent;
+  cursor: default;
+  font-size: 10px;
+}
+
+/* ── Detail panel ────────────────────────────────────────────────────────── */
+.pv-detail {
+  display: block;
+  margin: 4px 0 6px;
+  padding: 10px 12px;
+  background: #141414;
+  border: 1px solid rgba(245, 240, 232, 0.1);
+  border-radius: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 11px;
+  color: #f5f0e8;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.pv-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(245, 240, 232, 0.07);
+}
+
+.pv-logo {
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: #f5f0e8;
+}
+
+.pv-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #5c554e;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  touch-action: manipulation;
+}
+.pv-close:hover { color: #f5f0e8; }
+.pv-close:focus-visible { outline: 2px solid #06b6d4; }
+
+.pv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(245, 240, 232, 0.05);
+}
+
+.pv-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #5c554e;
+  text-transform: uppercase;
+}
+
+.pv-val {
+  font-size: 11px;
+  font-weight: 600;
+  color: #a89f94;
+}
+
+.pv-signals {
+  padding: 6px 0 4px;
+  border-bottom: 1px solid rgba(245, 240, 232, 0.05);
+}
+
+.pv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.pv-tag {
+  padding: 2px 6px;
+  background: rgba(220, 38, 38, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-radius: 2px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.pv-source {
+  padding: 6px 0 4px;
+  border-bottom: 1px solid rgba(245, 240, 232, 0.05);
+}
+
+.pv-source-link {
+  display: block;
+  margin-top: 4px;
+  color: #06b6d4;
+  font-size: 10px;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pv-source-link:hover { text-decoration: underline; }
+
+.pv-open-full {
+  display: block;
+  margin-top: 8px;
+  text-align: center;
+  color: #dc2626;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+  padding: 5px;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 2px;
+}
+.pv-open-full:hover {
+  background: rgba(220, 38, 38, 0.08);
+}

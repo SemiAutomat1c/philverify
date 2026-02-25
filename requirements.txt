@@ -13,6 +13,7 @@ transformers==4.46.3
 torch==2.5.1
 sentence-transformers==3.3.1
 scikit-learn==1.5.2
+safetensors>=0.4.3                # Faster, safer model serialisation (used by transformers)
 spacy==3.8.2
 langdetect==1.0.9
 nltk==3.9.1
@@ -20,7 +21,7 @@ nltk==3.9.1
 # ── Input Modules ─────────────────────────────────────────────────────────────
 pytesseract==0.3.13               # OCR
 Pillow==11.0.0                    # Image processing
-openai-whisper==20240930          # ASR (Filipino speech)
+# openai-whisper==20240930        # ASR (Filipino speech) — installed separately in Dockerfile (--no-build-isolation)
 beautifulsoup4==4.12.3            # URL scraping
 requests==2.32.3
 lxml==5.3.0
@@ -36,6 +37,13 @@ alembic==1.14.0
 # ── Caching ───────────────────────────────────────────────────────────────────
 redis==5.2.1
 cachetools==5.5.0
+
+# ── Dataset Pipeline ─────────────────────────────────────────────────────────
+datasets>=2.21.0              # HuggingFace dataset loader (fake_news_filipino, liar, etc.)
+pandas>=2.2.0                  # Parquet I/O for combined dataset
+pyarrow>=17.0.0                # Parquet engine
+datasketch>=1.6.4              # MinHash LSH for fast deduplication
+kagglehub>=0.3.0               # Auto-download Kaggle datasets (ISOT)
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 python-dotenv==1.0.1

@@ -67,6 +67,10 @@ async def verify_url(body: URLVerifyRequest) -> VerificationResponse:
         return result
     except HTTPException:
         raise
+    except ValueError as exc:
+        # Expected user-facing errors (e.g. robots.txt block, bad URL)
+        logger.warning("verify/url rejected: %s", exc)
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("verify/url error: %s", exc)
         raise HTTPException(status_code=500, detail=f"URL verification failed: {exc}") from exc

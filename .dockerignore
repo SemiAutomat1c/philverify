@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.cache/
+venv/
+.venv/
+*.egg-info/
+
+# Environment & secrets
+.env
+.env.*
+serviceAccountKey.json
+
+# Local data / logs
+data/history.json
+inputs/*.log
+inputs/__pycache__/
+
+# ML training artefacts (keep ml/models/ — needed at runtime)
+ml/data/
+ml/*.log
+
+# Frontend source (only dist goes to Firebase Hosting, not Cloud Run)
+frontend/
+
+# Git / editor
+.git/
+.gitignore
+.gitattributes
+.vscode/
+.idea/
+
+# Docs
+docs/
+*.md
+README*
+
+# Tests
+tests/
+pytest.ini
+
+# Docker itself
+Dockerfile
+.dockerignore
