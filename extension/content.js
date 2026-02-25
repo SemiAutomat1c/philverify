@@ -394,12 +394,15 @@
   // ── Initialization ────────────────────────────────────────────────────────
 
   async function init() {
-    // Check autoScan setting before activating
+    // Check autoScan setting before activating.
+    // Default to true if the service worker hasn't responded yet (MV3 cold start).
     const response = await new Promise(resolve => {
-      chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, resolve)
+      chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (r) => {
+        resolve(r ?? { autoScan: true })
+      })
     }).catch(() => ({ autoScan: true }))
 
-    if (!response?.autoScan) return
+    if (response?.autoScan === false) return
 
     // Process any posts already in the DOM
     const existing = findPosts(document.body)
