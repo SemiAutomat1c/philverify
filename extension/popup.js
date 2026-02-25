@@ -50,6 +50,13 @@ function isUrl(s) {
   try { new URL(s); return s.startsWith('http'); } catch { return false }
 }
 
+function isSocialUrl(s) {
+  try {
+    const h = new URL(s).hostname
+    return h.includes('facebook.com') || h.includes('x.com') || h.includes('twitter.com')
+  } catch { return false }
+}
+
 // ── Render helpers ────────────────────────────────────────────────────────────
 
 function renderResult(result, container) {
@@ -135,12 +142,16 @@ const currentUrlEl = document.getElementById('current-url')
 // Auto-populate input with current tab URL if it's a news article
 chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
   const url = tab?.url ?? ''
-  if (url && !url.startsWith('chrome') && !url.includes('facebook.com')) {
+  if (url && !url.startsWith('chrome') && !isSocialUrl(url)) {
     currentUrlEl.textContent = url
     currentUrlEl.title = url
     verifyInput.value = url
   } else {
-    currentUrlEl.textContent = 'facebook.com — use text input below'
+    const h = (() => { try { return new URL(url).hostname } catch { return '' } })()
+    const site = h.includes('x.com') || h.includes('twitter.com') ? 'x.com / twitter.com'
+               : h.includes('facebook.com') ? 'facebook.com'
+               : 'social media'
+    currentUrlEl.textContent = `${site} — paste post text below`
   }
 })
 
@@ -155,6 +166,21 @@ btnVerify.addEventListener('click', async () => {
     <div class="state-loading" aria-live="polite">
       <div class="spinner" aria-hidden="true"></div><br>Analyzing claim…
     </div>`
+
+  // Block social media URLs — backend can't scrape them
+  if (isSocialUrl(raw)) {
+    btnVerify.disabled = false
+    btnVerify.setAttribute('aria-busy', 'false')
+    btnVerify.textContent = 'Verify Claim'
+    verifyResult.innerHTML = `
+      <div class="state-error" role="alert">
+        Facebook, X, and Twitter URLs can't be scraped by the backend.<br>
+        <span style="font-size:10px;color:var(--text-muted)">
+          Paste the post's text/caption directly instead, or let the extension auto-scan your feed.
+        </span>
+      </div>`
+    return
+  }
 
   const type = isUrl(raw) ? 'VERIFY_URL' : 'VERIFY_TEXT'
   const payload = type === 'VERIFY_URL' ? { type, url: raw } : { type, text: raw }
