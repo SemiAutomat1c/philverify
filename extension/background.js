@@ -20,7 +20,7 @@ const MAX_HISTORY  = 50
 
 // ── Default settings ──────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
-  apiBase:  'http://localhost:8000',
+  apiBase:  'https://philverify.web.app/api',
   autoScan: true,    // Automatically scan Facebook feed posts
 }
 

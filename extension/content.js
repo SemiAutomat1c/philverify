@@ -220,7 +220,7 @@
           ${safeText(topSource.title?.slice(0, 60) ?? topSource.source_name ?? 'View source')} ↗
         </a>
       </div>` : ''}
-      <a href="http://localhost:5173" target="_blank" rel="noreferrer" class="pv-open-full">
+      <a href="https://philverify.web.app" target="_blank" rel="noreferrer" class="pv-open-full">
         Open full analysis ↗
       </a>
     `
@@ -373,7 +373,108 @@
 
   init()
 
-  // React to autoScan toggle without requiring page reload
+  // ── Auto-verify news article pages (non-Facebook) ─────────────────────────
+  // When the content script runs on a PH news site (not the homepage),
+  // it auto-verifies the current URL and injects a floating verdict banner.
+
+  const IS_FACEBOOK = window.location.hostname.includes('facebook.com')
+
+  async function autoVerifyPage() {
+    const url  = window.location.href
+    const path = new URL(url).pathname
+    // Skip homepages and section indexes (very short paths like / or /news)
+    if (!path || path.length < 8 || path.split('/').filter(Boolean).length < 2) return
+
+    const banner = document.createElement('div')
+    banner.id = 'pv-auto-banner'
+    banner.setAttribute('role', 'status')
+    banner.setAttribute('aria-live', 'polite')
+    banner.style.cssText = [
+      'position:fixed;top:0;left:0;right:0;z-index:2147483647',
+      'background:#141414;border-bottom:2px solid rgba(220,38,38,0.4)',
+      'padding:7px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px',
+      'font-family:system-ui,sans-serif;font-size:11px;color:#a89f94',
+      'box-shadow:0 2px 16px rgba(0,0,0,0.6)',
+    ].join(';')
+
+    banner.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;">
+        <span style="font-weight:800;letter-spacing:0.1em;color:#f5f0e8;flex-shrink:0;">
+          PHIL<span style="color:#dc2626">VERIFY</span>
+        </span>
+        <span id="pv-auto-status" style="display:flex;align-items:center;gap:6px;overflow:hidden;">
+          <span class="pv-spinner" aria-hidden="true"></span>
+          <span style="white-space:nowrap;">Verifying article…</span>
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <a id="pv-open-full"
+           href="https://philverify.web.app"
+           target="_blank"
+           rel="noreferrer"
+           style="color:#dc2626;font-size:9px;font-weight:700;letter-spacing:0.1em;text-decoration:none;border:1px solid rgba(220,38,38,0.35);padding:3px 8px;border-radius:2px;white-space:nowrap;"
+           aria-label="Open PhilVerify dashboard">
+          FULL ANALYSIS ↗
+        </a>
+        <button id="pv-close-banner"
+          style="background:none;border:none;color:#5c554e;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;flex-shrink:0;"
+          aria-label="Dismiss PhilVerify banner">✕</button>
+      </div>
+    `
+
+    document.body.insertAdjacentElement('afterbegin', banner)
+    // Push page content down so banner doesn't overlap
+    document.documentElement.style.marginTop = '36px'
+
+    document.getElementById('pv-close-banner').addEventListener('click', () => {
+      banner.remove()
+      document.documentElement.style.marginTop = ''
+    })
+
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ type: 'VERIFY_URL', url }, (resp) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message))
+          else if (!resp?.ok)           reject(new Error(resp?.error ?? 'Unknown error'))
+          else                          resolve(resp.result)
+        })
+      })
+
+      const color   = VERDICT_COLORS[response.verdict] ?? '#5c554e'
+      const statusEl = document.getElementById('pv-auto-status')
+      if (statusEl) {
+        statusEl.innerHTML = `
+          <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;" aria-hidden="true"></span>
+          <span style="color:${color};font-weight:700;">${safeText(response.verdict)}</span>
+          <span style="color:#5c554e;margin-left:2px;">${Math.round(response.final_score)}% credibility</span>
+          ${response.layer1?.triggered_features?.length
+            ? `<span style="color:#5c554e;margin-left:4px;font-size:9px;">· ${safeText(response.layer1.triggered_features[0])}</span>`
+            : ''}
+        `
+      }
+      banner.style.borderBottomColor = color + '88'
+      // Update full-analysis link to deep-link with the URL pre-filled
+      const fullLink = document.getElementById('pv-open-full')
+      if (fullLink) fullLink.href = `https://philverify.web.app`
+
+      // Auto-dismiss if credible and user hasn't interacted
+      if (response.verdict === 'Credible') {
+        setTimeout(() => {
+          if (document.contains(banner)) {
+            banner.remove()
+            document.documentElement.style.marginTop = ''
+          }
+        }, 5000)
+      }
+    } catch (_) {
+      banner.remove()
+      document.documentElement.style.marginTop = ''
+    }
+  }
+
+  if (!IS_FACEBOOK) {
+    autoVerifyPage()
+  }
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes.settings) return
     const autoScan = changes.settings.newValue?.autoScan

@@ -78,7 +78,7 @@ function renderResult(result, container) {
         <div class="result-label" style="margin-bottom:4px;">Top Source</div>
         <a href="${safeUrl(topSource.url)}" target="_blank" rel="noreferrer">${safeText(topSource.title?.slice(0, 55) ?? topSource.source_name ?? 'View')} ↗</a>
       </div>` : ''}
-      <a class="open-full" href="http://localhost:5173" target="_blank" rel="noreferrer">
+      <a class="open-full" href="https://philverify.web.app" target="_blank" rel="noreferrer">
         Open Full Dashboard ↗
       </a>
     </div>

@@ -13,8 +13,8 @@
   "host_permissions": [
     "https://www.facebook.com/*",
     "https://facebook.com/*",
-    "http://localhost:8000/*",
-    "https://api.philverify.com/*"
+    "https://philverify.web.app/*",
+    "http://localhost:8000/*"
   ],
 
   "background": {
@@ -24,7 +24,31 @@
 
   "content_scripts": [
     {
-      "matches": ["https://www.facebook.com/*", "https://facebook.com/*"],
+      "matches": [
+        "https://www.facebook.com/*",
+        "https://facebook.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.rappler.com/*",
+        "https://rappler.com/*",
+        "https://www.inquirer.net/*",
+        "https://business.inquirer.net/*",
+        "https://newsinfo.inquirer.net/*",
+        "https://technology.inquirer.net/*",
+        "https://www.gmanetwork.com/*",
+        "https://www.philstar.com/*",
+        "https://www.manilatimes.net/*",
+        "https://www.mb.com.ph/*",
+        "https://news.abs-cbn.com/*",
+        "https://www.pna.gov.ph/*",
+        "https://www.bworldonline.com/*",
+        "https://interaksyon.philstar.com/*"
+      ],
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
