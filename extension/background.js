@@ -145,6 +145,13 @@ async function verifyImageUrl(imageUrl) {
   return result
 }
 
+// ── Side panel ────────────────────────────────────────────────────────────────
+
+// Open the side panel when the toolbar icon is clicked (stays open while browsing)
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ windowId: tab.windowId })
+})
+
 // ── Message handler ───────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

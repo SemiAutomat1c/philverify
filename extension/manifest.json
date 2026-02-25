@@ -7,8 +7,13 @@
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "sidePanel"
   ],
+
+  "side_panel": {
+    "default_path": "popup.html"
+  },
 
   "host_permissions": [
     "https://www.facebook.com/*",
@@ -67,7 +72,6 @@
   ],
 
   "action": {
-    "default_popup": "popup.html",
     "default_title": "PhilVerify — Fact Check",
     "default_icon": {
       "16":  "icons/icon16.png",
