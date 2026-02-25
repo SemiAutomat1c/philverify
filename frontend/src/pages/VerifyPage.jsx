@@ -271,8 +271,6 @@ export default function VerifyPage() {
     useEffect(() => {
         if (tab !== 'url' || !input.trim()) { setUrlPreview(null); setUrlPreviewLoading(false); return }
         try { new URL(input.trim()) } catch { setUrlPreview(null); setUrlPreviewLoading(false); return }
-        // Don't attempt to preview social media URLs — they're login-protected
-        if (isSocialUrl(input.trim())) { setUrlPreview(null); setUrlPreviewLoading(false); return }
         setUrlPreviewLoading(true)
         const timer = setTimeout(async () => {
             try {
@@ -299,12 +297,6 @@ export default function VerifyPage() {
     async function handleSubmit(e) {
         e.preventDefault()
         if (!canSubmit) return
-
-        /* Block social media URLs — backend can't scrape them */
-        if (tab === 'url' && isSocialUrl(input)) {
-            setError('Facebook, X, and Twitter URLs cannot be scraped — the page is login-protected.\n\nInstead: copy the post\'s text/caption and paste it into the Text tab.')
-            return
-        }
 
         /* Capture what the user submitted before any state resets */
         const previewUrl = (tab === 'image' || tab === 'video') && file
@@ -615,28 +607,17 @@ export default function VerifyPage() {
                 <div id={errorId} role="alert"
                     className="card p-4 flex items-start gap-2"
                     style={{ borderColor: isSocialUrl(input) ? 'rgba(220,150,38,0.4)' : 'rgba(220,38,38,0.4)' }}>
-                    <AlertCircle size={15} style={{ color: isSocialUrl(input) ? '#fb923c' : '#f87171', marginTop: 1, flexShrink: 0 }} aria-hidden="true" />
+                    <AlertCircle size={15} style={{ color: '#f87171', marginTop: 1, flexShrink: 0 }} aria-hidden="true" />
                     <div>
-                        <p className="text-sm font-semibold" style={{ color: isSocialUrl(input) ? '#fb923c' : '#f87171', fontFamily: 'var(--font-display)' }}>
-                            {isSocialUrl(input) ? 'Social media URLs are not supported' : 'Verification failed'}
+                        <p className="text-sm font-semibold" style={{ color: '#f87171', fontFamily: 'var(--font-display)' }}>
+                            Verification failed
                         </p>
-                        {isSocialUrl(input) ? (
-                            <>
-                                <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                    Facebook, X, and Twitter block server-side scraping — the page requires a login.
-                                </p>
-                                <p className="text-xs mt-1.5 font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
-                                    Instead: copy the post caption/text and paste it into the <strong>Text</strong> tab.
-                                </p>
-                            </>
-                        ) : (
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                {error}
-                                {/failed to fetch|network|ERR_/i.test(error) && (
-                                    <> — Make sure the backend is running at <code>localhost:8000</code>.</>
-                                )}
-                            </p>
-                        )}
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                            {error}
+                            {/failed to fetch|network|ERR_/i.test(error) && (
+                                <> — Make sure the backend is running at <code>localhost:8000</code>.</>
+                            )}
+                        </p>
                     </div>
                 </div>
             )}

@@ -38,6 +38,58 @@ def _get_domain(url: str) -> str:
     return urlparse(url).netloc.replace("www.", "")
 
 
+def _is_social_url(url: str) -> str | None:
+    """Return 'facebook' | 'twitter' | None based on hostname."""
+    host = urlparse(url).netloc.lower()
+    if "facebook.com" in host:
+        return "facebook"
+    if "x.com" in host or "twitter.com" in host:
+        return "twitter"
+    return None
+
+
+async def _scrape_social_oembed(url: str, platform: str, client) -> str:
+    """
+    Extract post text via the public oEmbed API — no login required.
+      Facebook: https://www.facebook.com/plugins/post/oembed.json/
+      Twitter/X: https://publish.twitter.com/oembed
+    Parses the returned HTML blockquote for plain text.
+    """
+    from bs4 import BeautifulSoup
+
+    encoded = urllib.parse.quote(url, safe="")
+    if platform == "facebook":
+        oembed_url = (
+            f"https://www.facebook.com/plugins/post/oembed.json/"
+            f"?url={encoded}&omitscript=1"
+        )
+    else:
+        oembed_url = (
+            f"https://publish.twitter.com/oembed"
+            f"?url={encoded}&omit_script=1"
+        )
+
+    try:
+        resp = await client.get(oembed_url, timeout=15)
+        if resp.status_code != 200:
+            logger.warning("oEmbed %s HTTP %d for %s", platform, resp.status_code, url)
+            return ""
+        data = resp.json()
+        html = data.get("html", "")
+        if not html:
+            return ""
+        soup = BeautifulSoup(html, "lxml")
+        # Drop the trailing attribution link / timestamp
+        for a in soup.find_all("a"):
+            a.decompose()
+        text = _clean_text(soup.get_text(separator=" ", strip=True))
+        logger.info("oEmbed %s: %d chars from %s", platform, len(text), url)
+        return text
+    except Exception as exc:
+        logger.warning("oEmbed failed for %s (%s): %s", url, platform, exc)
+        return ""
+
+
 def _slug_to_text(url: str) -> str:
     """
     Synthesize minimal article text from the URL slug and domain.
@@ -239,6 +291,20 @@ async def scrape_url(url: str) -> tuple[str, str]:
         raise RuntimeError(f"Missing scraping dependency: {exc}") from exc
 
     domain = _get_domain(url)
+
+    # ── Social media: use public oEmbed API (no login required) ──────────────
+    platform = _is_social_url(url)
+    if platform:
+        try:
+            import httpx
+        except ImportError as exc:
+            raise RuntimeError(f"Missing dependency: {exc}") from exc
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+            text = await _scrape_social_oembed(url, platform, client)
+        if text and len(text.strip()) >= 20:
+            return text, domain
+        # oEmbed failed — could be a profile/group URL rather than a specific post
+        return "", domain
 
     if not _robots_allow(url):
         logger.warning("robots.txt disallows scraping %s", url)
