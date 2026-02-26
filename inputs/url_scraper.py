@@ -10,6 +10,7 @@ Extraction strategy (waterfall):
 """
 import logging
 import re
+import urllib.parse
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,121 @@ def _is_social_url(url: str) -> str | None:
     if "x.com" in host or "twitter.com" in host:
         return "twitter"
     return None
+
+
+def _scrape_facebook_post_sync(url: str) -> tuple[str, str | None]:
+    """
+    Fallback Facebook post scraper using the `facebook-scraper` library.
+    Runs synchronously — call via asyncio.to_thread() from async code.
+
+    Returns (text, image_url) where image_url may be None.
+    Returns ("", None) if scraping fails or yields no content.
+
+    If FACEBOOK_C_USER + FACEBOOK_XS cookies are set in config, they are passed
+    to unlock friends-only posts and reduce rate-limiting.
+    """
+    try:
+        import facebook_scraper as fs
+        from facebook_scraper import exceptions as fb_exc
+    except ImportError:
+        logger.warning("facebook-scraper not installed — skipping FB post fallback")
+        return "", None
+
+    from config import get_settings
+    cookies = get_settings().facebook_cookies
+    if cookies:
+        logger.info("facebook-scraper: using authenticated cookies (c_user=%s…)", cookies["c_user"][:6])
+        try:
+            fs.set_cookies(cookies)
+        except Exception:
+            pass  # non-fatal — library may not expose this in all versions
+
+    try:
+        # get_posts accepts direct post URLs via post_urls= parameter.
+        # allow_extra_requests=False avoids spawning pyppeteer/headless Chromium.
+        gen = fs.get_posts(
+            post_urls=[url],
+            options={
+                "allow_extra_requests": False,
+                "progress":             False,
+            },
+            cookies=cookies or {},
+        )
+        post = next(gen, None)
+        if post is None:
+            logger.info("facebook-scraper: no post returned for %s", url)
+            return "", None
+
+        # post_text is the full untruncated body; text may be truncated
+        raw_text = post.get("post_text") or post.get("text") or ""
+
+        # Append shared post text (quote/repost) for additional signal
+        shared = post.get("shared_text") or ""
+        if shared and shared not in raw_text:
+            raw_text = f"{raw_text}\n\n{shared}".strip()
+
+        text = _clean_text(raw_text)
+
+        # Image selection priority:
+        #   1. First entry in images[] (highest quality, actual post photo)
+        #   2. Fallback `image` field (single-image shorthand)
+        #   3. video_thumbnail if it's a video post (gives OCR something to work with)
+        images: list[str] = post.get("images") or []
+        image_url: str | None = (
+            images[0]
+            if images
+            else post.get("image") or post.get("video_thumbnail")
+        )
+
+        logger.info(
+            "facebook-scraper OK: %d chars, image=%s, video=%s for %s",
+            len(text), bool(image_url), bool(post.get("video")), url,
+        )
+        return text, image_url
+
+    # ── Specific exceptions from facebook_scraper.exceptions ─────────────────
+    except fb_exc.LoginRequired:
+        # Post requires a logged-in session.
+        if cookies:
+            logger.warning("facebook-scraper: login still required even with cookies for %s — cookies may be expired", url)
+        else:
+            logger.info("facebook-scraper: login required for %s — no cookies configured", url)
+        return "", None
+
+    except fb_exc.NotFound:
+        logger.info("facebook-scraper: post not found for %s", url)
+        return "", None
+
+    except fb_exc.TemporarilyBanned:
+        # IP-level rate limit from Facebook — log as warning so Cloud Logging alerts fire
+        logger.warning("facebook-scraper: IP temporarily banned by Facebook while fetching %s", url)
+        return "", None
+
+    except fb_exc.InvalidCookies:
+        logger.warning("facebook-scraper: invalid/expired cookies for %s — falling back to public scraping", url)
+        return "", None
+
+    except fb_exc.UnexpectedResponse as exc:
+        logger.warning("facebook-scraper: unexpected FB response for %s: %s", url, exc)
+        return "", None
+
+    except StopIteration:
+        # Generator exhausted without yielding — URL is a profile/group, not a post
+        logger.info("facebook-scraper: generator empty for %s (not a post URL)", url)
+        return "", None
+
+    except Exception as exc:
+        logger.warning("facebook-scraper: unexpected error for %s: %s", url, exc)
+        return "", None
+
+
+async def _scrape_facebook_post(url: str) -> tuple[str, str | None]:
+    """
+    Async wrapper around _scrape_facebook_post_sync().
+    Returns (text, image_url).
+    """
+    import asyncio
+    return await asyncio.to_thread(_scrape_facebook_post_sync, url)
 
 
 async def _scrape_social_oembed(url: str, platform: str, client) -> str:
@@ -303,7 +419,22 @@ async def scrape_url(url: str) -> tuple[str, str]:
             text = await _scrape_social_oembed(url, platform, client)
         if text and len(text.strip()) >= 20:
             return text, domain
-        # oEmbed failed — could be a profile/group URL rather than a specific post
+
+        # oEmbed returned nothing (private post, group URL, or API limit hit).
+        # For Facebook, try facebook-scraper as a fallback to get full post content.
+        if platform == "facebook":
+            logger.info("oEmbed returned no content for %s — trying facebook-scraper fallback", url)
+            fb_text, fb_image = await _scrape_facebook_post(url)
+            if fb_text and len(fb_text.strip()) >= 20:
+                # NOTE: fb_image contains the post image URL if present.
+                # The current pipeline is text-only for URL verification.
+                # Future: extend VerifyURLRequest to accept an optional image_url
+                # so the multimodal endpoint can be invoked here instead.
+                if fb_image:
+                    logger.info("facebook-scraper also found image for %s — not yet used in pipeline", url)
+                return fb_text.strip(), domain
+
+        # All fallbacks failed — could be a profile/group URL rather than a specific post
         return "", domain
 
     if not _robots_allow(url):

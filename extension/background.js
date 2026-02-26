@@ -16,11 +16,11 @@
  */
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000   // 24 hours
-const MAX_HISTORY  = 50
+const MAX_HISTORY = 50
 
 // ── Default settings ──────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
-  apiBase:  'https://philverify.web.app/api',
+  apiBase: 'https://philverify.web.app/api',
   autoScan: true,    // Automatically scan Facebook feed posts
 }
 
@@ -70,11 +70,11 @@ async function setCached(key, result, preview) {
   // Prepend to history list
   const { history = [] } = await chrome.storage.local.get('history')
   const entry = {
-    id:           key,
-    timestamp:    new Date().toISOString(),
+    id: key,
+    timestamp: new Date().toISOString(),
     text_preview: preview.slice(0, 80),
-    verdict:      result.verdict,
-    final_score:  result.final_score,
+    verdict: result.verdict,
+    final_score: result.final_score,
   }
   const updated = [entry, ...history.filter(h => h.id !== key)].slice(0, MAX_HISTORY)
   await chrome.storage.local.set({ history: updated })
@@ -82,16 +82,20 @@ async function setCached(key, result, preview) {
 
 // ── API calls ─────────────────────────────────────────────────────────────────
 
-async function verifyText(text) {
-  const key  = 'txt_' + await sha256prefix(text)
-  const hit  = await getCached(key)
+async function verifyText(text, imageUrl) {
+  const key = 'txt_' + await sha256prefix(text)
+  const hit = await getCached(key)
   if (hit) return { ...hit, _fromCache: true }
 
   const { apiBase } = await getSettings()
+  // Build payload — include imageUrl for multimodal (text + image) analysis
+  const payload = { text }
+  if (imageUrl && isHttpUrl(imageUrl)) payload.image_url = imageUrl
+
   const res = await fetch(`${apiBase}/verify/text`, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ text }),
+    body: JSON.stringify(payload),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -109,9 +113,9 @@ async function verifyUrl(url) {
 
   const { apiBase } = await getSettings()
   const res = await fetch(`${apiBase}/verify/url`, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ url }),
+    body: JSON.stringify({ url }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -131,7 +135,7 @@ async function verifyImageUrl(imageUrl) {
   const imgRes = await fetch(imageUrl)
   if (!imgRes.ok) throw new Error(`Could not fetch image: ${imgRes.status}`)
   const blob = await imgRes.blob()
-  const ct  = imgRes.headers.get('content-type') ?? 'image/jpeg'
+  const ct = imgRes.headers.get('content-type') ?? 'image/jpeg'
   const ext = ct.includes('png') ? 'png' : ct.includes('webp') ? 'webp' : 'jpg'
   const formData = new FormData()
   formData.append('file', blob, `image.${ext}`)
@@ -158,8 +162,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   switch (msg.type) {
 
     case 'VERIFY_TEXT':
-      verifyText(msg.text)
-        .then(r  => sendResponse({ ok: true,  result: r }))
+      verifyText(msg.text, msg.imageUrl)
+        .then(r => sendResponse({ ok: true, result: r }))
         .catch(e => sendResponse({ ok: false, error: e.message }))
       return true   // keep message channel open for async response
 
@@ -169,7 +173,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return false
       }
       verifyUrl(msg.url)
-        .then(r  => sendResponse({ ok: true,  result: r }))
+        .then(r => sendResponse({ ok: true, result: r }))
         .catch(e => sendResponse({ ok: false, error: e.message }))
       return true
 
@@ -179,7 +183,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return false
       }
       verifyImageUrl(msg.imageUrl)
-        .then(r  => sendResponse({ ok: true,  result: r }))
+        .then(r => sendResponse({ ok: true, result: r }))
         .catch(e => sendResponse({ ok: false, error: e.message }))
       return true
 

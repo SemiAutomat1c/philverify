@@ -1,179 +1,364 @@
 /**
  * PhilVerify — Content Script Styles
- * Badge overlay injected into Facebook feed posts.
- * All selectors are namespaced under .pv-* to avoid collisions.
+ * Floating verify button + inline report overlay.
+ * All selectors namespaced under .pv-* to avoid collisions.
  */
 
-/* ── Badge wrapper ───────────────────────────────────────────────────────── */
-.pv-badge-wrap {
-  display: block;
-  margin: 6px 12px 2px;
+/* ── Floating "Verify this post" button ─────────────────────────────────────── */
+/* Wrapper container: sits at the end of the post, flex-end alignment */
+.pv-verify-btn-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 12px 8px;
+  pointer-events: none;
+  /* Let clicks pass through the wrapper */
 }
 
-.pv-badge {
+.pv-verify-btn {
+  position: relative;
+  z-index: 100;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  border-radius: 3px;
+  padding: 6px 12px;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 20px;
+  background: rgba(20, 20, 20, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #f5f0e8;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  /* Re-enable clicks on the button itself */
 }
 
-.pv-badge:focus-visible {
+.pv-verify-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(220, 38, 38, 0.6);
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.2);
+}
+
+.pv-verify-btn:active {
+  transform: scale(0.97);
+}
+
+.pv-verify-btn:focus-visible {
   outline: 2px solid #06b6d4;
   outline-offset: 2px;
 }
 
-/* ── Loading state ───────────────────────────────────────────────────────── */
-.pv-badge--loading {
-  color: #a89f94;
-  border: 1px solid rgba(168, 159, 148, 0.2);
-  background: rgba(168, 159, 148, 0.06);
-  cursor: default;
+.pv-verify-btn-icon {
+  font-size: 13px;
+  line-height: 1;
 }
 
+.pv-verify-btn-label {
+  white-space: nowrap;
+}
+
+/* ── Loading state (on the button) ──────────────────────────────────────────── */
+.pv-verify-btn--loading {
+  cursor: wait;
+  border-color: rgba(168, 159, 148, 0.3);
+  color: #a89f94;
+}
+
+.pv-verify-btn--loading:hover {
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Error state (on the button) ────────────────────────────────────────────── */
+.pv-verify-btn--error {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #f87171;
+  animation: pv-shake 0.4s ease-in-out;
+}
+
+@keyframes pv-shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-3px);
+  }
+
+  40% {
+    transform: translateX(3px);
+  }
+
+  60% {
+    transform: translateX(-2px);
+  }
+
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+/* ── Spinner ────────────────────────────────────────────────────────────────── */
 .pv-spinner {
   display: inline-block;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border: 2px solid rgba(168, 159, 148, 0.3);
   border-top-color: #a89f94;
   border-radius: 50%;
   animation: pv-spin 0.7s linear infinite;
+  flex-shrink: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pv-spinner { animation: none; }
+  .pv-spinner {
+    animation: none;
+  }
+
+  .pv-verify-btn--error {
+    animation: none;
+  }
+
+  .pv-verify-btn {
+    transition: none;
+  }
 }
 
 @keyframes pv-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* ── Error state ─────────────────────────────────────────────────────────── */
-.pv-badge--error {
-  color: #78716c;
-  border: 1px solid rgba(120, 113, 108, 0.2);
-  background: transparent;
-  cursor: default;
-  font-size: 10px;
-}
-
-/* ── Detail panel ────────────────────────────────────────────────────────── */
-.pv-detail {
+/* ── Inline verification report ─────────────────────────────────────────────── */
+.pv-report {
   display: block;
-  margin: 4px 0 6px;
-  padding: 10px 12px;
+  margin: 8px 12px 12px;
+  padding: 14px 16px;
   background: #141414;
   border: 1px solid rgba(245, 240, 232, 0.1);
-  border-radius: 4px;
+  border-radius: 8px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   font-size: 11px;
   color: #f5f0e8;
-  max-width: 400px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  max-width: 480px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  position: relative;
+  z-index: 50;
 }
 
-.pv-detail-header {
+/* — Header */
+.pv-report-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
-  padding-bottom: 6px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid rgba(245, 240, 232, 0.07);
 }
 
-.pv-logo {
+.pv-report-logo {
   font-weight: 800;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   color: #f5f0e8;
 }
 
-.pv-close {
+.pv-report-close {
   background: none;
   border: none;
   cursor: pointer;
   color: #5c554e;
-  font-size: 12px;
-  padding: 2px 4px;
-  border-radius: 2px;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
   touch-action: manipulation;
+  transition: color 0.15s ease;
 }
-.pv-close:hover { color: #f5f0e8; }
-.pv-close:focus-visible { outline: 2px solid #06b6d4; }
 
-.pv-row {
+.pv-report-close:hover {
+  color: #f5f0e8;
+  background: rgba(245, 240, 232, 0.05);
+}
+
+.pv-report-close:focus-visible {
+  outline: 2px solid #06b6d4;
+}
+
+/* — Verdict row */
+.pv-report-verdict-row {
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-left: 3px solid #5c554e;
+  border-radius: 0 4px 4px 0;
+  background: rgba(245, 240, 232, 0.03);
+}
+
+.pv-report-verdict {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 2px;
+}
+
+.pv-report-score-text {
+  font-size: 10px;
+  color: #a89f94;
+  font-family: 'SF Mono', 'Menlo', monospace;
+}
+
+/* — Confidence bar */
+.pv-confidence-bar-wrap {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
+  gap: 8px;
+  padding: 8px 0;
   border-bottom: 1px solid rgba(245, 240, 232, 0.05);
 }
 
-.pv-label {
+.pv-confidence-bar-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(245, 240, 232, 0.07);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.pv-confidence-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease-out;
+}
+
+.pv-confidence-bar-value {
+  font-size: 10px;
+  font-weight: 700;
+  color: #a89f94;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* — Info rows */
+.pv-report-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(245, 240, 232, 0.05);
+}
+
+.pv-report-label {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.12em;
   color: #5c554e;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 
-.pv-val {
+.pv-report-value {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   color: #a89f94;
 }
 
-.pv-signals {
-  padding: 6px 0 4px;
+/* — Suspicious signals tags */
+.pv-report-signals {
+  padding: 8px 0;
   border-bottom: 1px solid rgba(245, 240, 232, 0.05);
 }
 
-.pv-tags {
+.pv-report-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
-.pv-tag {
-  padding: 2px 6px;
+.pv-report-tag {
+  padding: 3px 8px;
   background: rgba(220, 38, 38, 0.12);
   color: #f87171;
   border: 1px solid rgba(220, 38, 38, 0.25);
-  border-radius: 2px;
+  border-radius: 3px;
   font-size: 9px;
   letter-spacing: 0.04em;
   font-weight: 600;
 }
 
-.pv-source {
-  padding: 6px 0 4px;
+/* — Evidence sources */
+.pv-report-sources {
+  padding: 8px 0;
   border-bottom: 1px solid rgba(245, 240, 232, 0.05);
 }
 
-.pv-source-link {
-  display: block;
-  margin-top: 4px;
+.pv-report-sources-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pv-report-source-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.pv-report-source-link {
   color: #06b6d4;
   font-size: 10px;
   text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
 }
-.pv-source-link:hover { text-decoration: underline; }
 
-.pv-open-full {
+.pv-report-source-link:hover {
+  text-decoration: underline;
+}
+
+.pv-report-source-stance {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #5c554e;
+  flex-shrink: 0;
+}
+
+/* — Explanation / Claim */
+.pv-report-explanation {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(245, 240, 232, 0.05);
+}
+
+.pv-report-explanation-text {
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: #a89f94;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* — Full analysis link */
+.pv-report-full-link {
   display: block;
-  margin-top: 8px;
+  margin-top: 10px;
   text-align: center;
   color: #dc2626;
   font-size: 10px;
@@ -181,10 +366,12 @@
   letter-spacing: 0.08em;
   text-decoration: none;
   text-transform: uppercase;
-  padding: 5px;
+  padding: 6px;
   border: 1px solid rgba(220, 38, 38, 0.3);
-  border-radius: 2px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
 }
-.pv-open-full:hover {
+
+.pv-report-full-link:hover {
   background: rgba(220, 38, 38, 0.08);
 }

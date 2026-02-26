@@ -18,6 +18,21 @@ class Settings(BaseSettings):
     news_api_key: str = ""
     google_vision_api_key: str = ""
 
+    # ── Facebook Scraper Cookies ──────────────────────────────────────────────
+    # Paste the value of the `c_user` and `xs` cookies from a logged-in
+    # Facebook session (browser DevTools → Application → Cookies → facebook.com).
+    # These unlock private/friends-only posts and reduce rate-limiting.
+    # Leave empty to scrape public posts only.
+    facebook_c_user: str = ""
+    facebook_xs: str = ""
+
+    @property
+    def facebook_cookies(self) -> dict | None:
+        """Return cookie dict for facebook-scraper, or None if not configured."""
+        if self.facebook_c_user and self.facebook_xs:
+            return {"c_user": self.facebook_c_user, "xs": self.facebook_xs}
+        return None
+
     # ── Database ──────────────────────────────────────────────────────────────
     database_url: str = "sqlite+aiosqlite:///./philverify_dev.db"  # Dev fallback
 

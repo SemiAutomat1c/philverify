@@ -105,6 +105,7 @@ class VerificationResponse(BaseModel):
     domain_credibility: Optional[DomainTier] = None
     input_type: str = "text"
     processing_time_ms: Optional[float] = None
+    extracted_text: Optional[str] = Field(None, description="Raw text extracted from the URL / image / video for transparency")
 
 
 # ── History / Trends ──────────────────────────────────────────────────────────

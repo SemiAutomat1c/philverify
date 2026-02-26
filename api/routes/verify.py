@@ -22,6 +22,50 @@ from inputs.asr import transcribe_video
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/verify", tags=["Verification"])
 
+# ── OG meta fallback for bot-protected / social URLs ──────────────────────────
+async def _fetch_og_text(url: str) -> str:
+    """
+    Fetches OG/meta title + description from a URL using a plain HTTP GET.
+    Used as a last-resort fallback when the full scraper returns no content
+    (e.g. Facebook share links, photo URLs that block the scraper).
+    Returns a concatenated title + description string, or "" on failure.
+    """
+    try:
+        import httpx
+        from bs4 import BeautifulSoup
+
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+        }
+        async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code >= 400:
+                return ""
+            head_end = resp.text.find("</head>")
+            head_html = resp.text[:head_end + 7] if head_end != -1 else resp.text[:8000]
+            soup = BeautifulSoup(head_html, "lxml")
+
+            def _m(prop=None, name=None):
+                el = (soup.find("meta", property=prop) if prop
+                      else soup.find("meta", attrs={"name": name}))
+                return (el.get("content") or "").strip() if el else ""
+
+            title = (_m(prop="og:title") or _m(name="twitter:title")
+                     or (soup.title.get_text(strip=True) if soup.title else ""))
+            description = (_m(prop="og:description") or _m(name="twitter:description")
+                           or _m(name="description"))
+            parts = [p for p in [title, description] if p]
+            return " ".join(parts)
+    except Exception as exc:
+        logger.warning("OG meta fallback failed for %s: %s", url, exc)
+        return ""
+
 
 # ── Text ──────────────────────────────────────────────────────────────────────
 
@@ -37,6 +81,7 @@ async def verify_text(body: TextVerifyRequest) -> VerificationResponse:
     try:
         result = await run_verification(body.text, input_type="text")
         result.processing_time_ms = round((time.perf_counter() - start) * 1000, 1)
+        result.extracted_text = body.text
         return result
     except Exception as exc:
         logger.exception("verify/text error: %s", exc)
@@ -58,12 +103,16 @@ async def verify_url(body: URLVerifyRequest) -> VerificationResponse:
     try:
         text, domain = await scrape_url(url_str)
         if not text or len(text.strip()) < 20:
+            logger.info("scrape_url returned no content for %s — trying OG meta fallback", url_str)
+            text = await _fetch_og_text(url_str)
+        if not text or len(text.strip()) < 20:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Could not extract meaningful text from the URL. The page may be paywalled or bot-protected.",
+                detail="Could not extract meaningful text from the URL. The page may be paywalled, private, or bot-protected. Try copying the post text and using the Text tab instead.",
             )
         result = await run_verification(text, input_type="url", source_domain=domain)
         result.processing_time_ms = round((time.perf_counter() - start) * 1000, 1)
+        result.extracted_text = text.strip()
         return result
     except HTTPException:
         raise
@@ -104,6 +153,7 @@ async def verify_image(file: UploadFile = File(...)) -> VerificationResponse:
             )
         result = await run_verification(text, input_type="image")
         result.processing_time_ms = round((time.perf_counter() - start) * 1000, 1)
+        result.extracted_text = text.strip()
         return result
     except HTTPException:
         raise
@@ -143,6 +193,7 @@ async def verify_video(file: UploadFile = File(...)) -> VerificationResponse:
             )
         result = await run_verification(text, input_type="video")
         result.processing_time_ms = round((time.perf_counter() - start) * 1000, 1)
+        result.extracted_text = text.strip()
         return result
     except HTTPException:
         raise

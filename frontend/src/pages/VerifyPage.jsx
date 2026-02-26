@@ -1,12 +1,12 @@
 import { useState, useRef, useId, useCallback, useEffect } from 'react'
 import { api } from '../api'
-import { scoreColor, VERDICT_MAP } from '../utils/format.js'
+import { scoreColor, VERDICT_MAP, scoreInterpretation, mlConfidenceExplanation, evidenceExplanation } from '../utils/format.js'
 import { PAGE_STYLE } from '../App.jsx'
 import ScoreGauge from '../components/ScoreGauge.jsx'
 import VerdictBadge from '../components/VerdictBadge.jsx'
 import WordHighlighter from '../components/WordHighlighter.jsx'
 import SkeletonCard from '../components/SkeletonCard.jsx'
-import { FileText, Link2, Image, Video, Loader2, ChevronRight, AlertCircle, Upload, CheckCircle2, XCircle, HelpCircle, ExternalLink, Layers, Brain, RefreshCw } from 'lucide-react'
+import { FileText, Link2, Image, Video, Loader2, ChevronRight, AlertCircle, Upload, CheckCircle2, XCircle, HelpCircle, ExternalLink, Layers, Brain, RefreshCw, Info } from 'lucide-react'
 
 /* ── Tab definitions ────────────────────────────────────── */
 const TABS = [
@@ -244,6 +244,7 @@ export default function VerifyPage() {
     const [submittedInput, setSubmittedInput] = useState(persisted?.submittedInput ?? null)
     const [urlPreview, setUrlPreview] = useState(null)
     const [urlPreviewLoading, setUrlPreviewLoading] = useState(false)
+    const [extractedTextOpen, setExtractedTextOpen] = useState(false)
     const fileRef = useRef()
     const inputSectionRef = useRef()
     const inputId = useId()
@@ -325,7 +326,7 @@ export default function VerifyPage() {
     }
 
     function handleVerifyAgain() {
-        setResult(null); setError(null)
+        setResult(null); setError(null); setExtractedTextOpen(false)
         sessionStorage.removeItem(STORAGE_KEY)
         // Smooth-scroll back to the input panel
         requestAnimationFrame(() => {
@@ -667,13 +668,35 @@ export default function VerifyPage() {
                         </button>
                     </div>
 
-                    {/* Row 1: Gauge + Meta */}
+                    {/* Row 1: Gauge + Verdict explanation + Meta */}
                     <div className="grid gap-4 fade-up-1" style={{ gridTemplateColumns: 'min(180px, 40%) 1fr' }}>
                         <div className="card p-5 flex flex-col items-center justify-center gap-3">
                             <ScoreGauge score={result.final_score} size={140} />
                             <VerdictBadge verdict={result.verdict} size="banner" />
                         </div>
                         <div className="card p-5 fade-up-2">
+                            {/* Plain-language verdict explanation */}
+                            <div className="mb-4 p-3" style={{
+                                background: result.verdict === 'Credible' ? 'rgba(34,197,94,0.08)'
+                                    : result.verdict === 'Likely Fake' ? 'rgba(220,38,38,0.08)'
+                                    : 'rgba(234,179,8,0.08)',
+                                border: `1px solid ${result.verdict === 'Credible' ? 'rgba(34,197,94,0.25)'
+                                    : result.verdict === 'Likely Fake' ? 'rgba(220,38,38,0.25)'
+                                    : 'rgba(234,179,8,0.25)'}`,
+                                borderRadius: 2,
+                            }}>
+                                <div className="flex items-start gap-2">
+                                    <Info size={13} style={{ color: finalColor, marginTop: 2, flexShrink: 0 }} aria-hidden="true" />
+                                    <div>
+                                        <p className="text-sm font-semibold mb-1" style={{ color: finalColor, fontFamily: 'var(--font-display)' }}>
+                                            What does this mean?
+                                        </p>
+                                        <p className="text-xs" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
+                                            {(VERDICT_MAP[result.verdict] ?? VERDICT_MAP['Unverified']).explanation}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                             <SectionHeading>Analysis Details</SectionHeading>
                             <MetaRow label="Language" value={result.language} />
                             <MetaRow label="Sentiment" value={result.sentiment} />
@@ -688,25 +711,121 @@ export default function VerifyPage() {
                     {/* Row 2: Score breakdown */}
                     <div className="card p-5 fade-up-3">
                         <SectionHeading>Score Breakdown</SectionHeading>
+                        <p className="text-xs mb-4" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
+                            The final score combines two layers of analysis. A score of 70+ means likely credible, 40–69 is uncertain, and below 40 is likely false.
+                        </p>
                         <div className="space-y-4">
-                            <ScoreBar label="ML Classifier (Layer 1 — 40%)" value={result.layer1?.confidence || 0} color="var(--accent-cyan)" index={0} />
-                            <ScoreBar label="Evidence Score (Layer 2 — 60%)" value={result.layer2?.evidence_score || 0} color="var(--accent-gold)" index={1} />
-                            <ScoreBar label="Final Credibility Score" value={result.final_score} color={finalColor} index={2} />
+                            <ScoreBar label="ML Classifier (Layer 1 — 40% weight)" value={result.layer1?.confidence || 0} color="var(--accent-cyan)" index={0} />
+                            <ScoreBar label="Evidence Cross-Check (Layer 2 — 60% weight)" value={result.layer2?.evidence_score || 0} color="var(--accent-gold)" index={1} />
+                            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                                <ScoreBar label="Final Credibility Score" value={result.final_score} color={finalColor} index={2} />
+                            </div>
                         </div>
+                        <p className="text-xs mt-3" style={{ color: finalColor, fontFamily: 'var(--font-body)', lineHeight: 1.6, fontWeight: 600 }}>
+                            {scoreInterpretation(result.final_score)}
+                        </p>
                     </div>
+
+                    {/* Row 2½: Extracted Text (collapsible) */}
+                    {result.extracted_text && (
+                        <div className="card fade-up-3" style={{ overflow: 'hidden' }}>
+                            <button
+                                onClick={() => setExtractedTextOpen(o => !o)}
+                                className="w-full flex items-center justify-between px-5 py-3 transition-colors"
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    borderBottom: extractedTextOpen ? '1px solid var(--border)' : 'none',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                                aria-expanded={extractedTextOpen}
+                                aria-controls="extracted-text-panel"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold uppercase tracking-widest"
+                                        style={{ fontFamily: 'var(--font-display)', color: 'var(--text-muted)', letterSpacing: '0.15em' }}>
+                                        {result.input_type === 'image' ? 'OCR Extracted Text'
+                                            : result.input_type === 'video' ? 'Transcribed Text'
+                                            : result.input_type === 'url' ? 'Scraped Text'
+                                            : 'Analyzed Text'}
+                                    </span>
+                                    <span className="text-xs tabular"
+                                        style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                                        {result.extracted_text.length} chars
+                                    </span>
+                                </div>
+                                <ChevronRight size={13}
+                                    style={{
+                                        color: 'var(--text-muted)',
+                                        transform: extractedTextOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                                        transition: 'transform 200ms ease',
+                                        flexShrink: 0,
+                                    }}
+                                    aria-hidden="true"
+                                />
+                            </button>
+                            {extractedTextOpen && (
+                                <div id="extracted-text-panel" className="px-5 py-4">
+                                    {result.input_type === 'url' && (
+                                        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                                            This is the text our scraper extracted from the URL. If it looks wrong or incomplete, the page may have been partially blocked.
+                                        </p>
+                                    )}
+                                    {result.input_type === 'image' && (
+                                        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                                            This is the text read from your image using OCR. Poor image quality may cause errors.
+                                        </p>
+                                    )}
+                                    {result.input_type === 'video' && (
+                                        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                                            This is the speech transcribed from your video/audio file.
+                                        </p>
+                                    )}
+                                    <pre
+                                        style={{
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-word',
+                                            fontFamily: 'var(--font-mono)',
+                                            fontSize: 12,
+                                            lineHeight: 1.7,
+                                            color: 'var(--text-secondary)',
+                                            background: 'var(--bg-elevated)',
+                                            border: '1px solid var(--border)',
+                                            borderRadius: 2,
+                                            padding: '12px 14px',
+                                            maxHeight: 280,
+                                            overflowY: 'auto',
+                                        }}
+                                    >
+                                        {result.extracted_text}
+                                    </pre>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Row 3: Layer cards (2 col, collapses to 1 on mobile) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 fade-up-4">
                         {/* Layer 1 */}
                         <LayerCard
-                            title="Layer 1 — ML Classifier"
+                            title="Layer 1 — AI Analysis"
                             icon={Brain}
                             verdict={result.layer1?.verdict}
                             score={result.layer1?.confidence}
                             delay={0}>
+                            <p className="text-xs mt-2" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
+                                {mlConfidenceExplanation(result.layer1?.confidence || 0, result.layer1?.verdict)}
+                            </p>
                             <div className="mt-3">
                                 <p className="text-xs mb-2" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-display)', letterSpacing: '0.1em' }}>
                                     TRIGGERED FEATURES
+                                </p>
+                                <p className="text-xs mb-2" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                                    {result.layer1?.triggered_features?.length > 0
+                                        ? 'These patterns are commonly found in misleading content:'
+                                        : ''}
                                 </p>
                                 <FeatureBreakdown features={result.layer1?.triggered_features} />
                             </div>
@@ -714,13 +833,16 @@ export default function VerifyPage() {
 
                         {/* Layer 2 */}
                         <LayerCard
-                            title="Layer 2 — Evidence"
+                            title="Layer 2 — Evidence Check"
                             icon={Layers}
                             verdict={result.layer2?.verdict}
                             score={result.layer2?.evidence_score}
                             delay={80}>
+                            <p className="text-xs mt-2" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
+                                {evidenceExplanation(result.layer2?.evidence_score || 0, result.layer2?.sources)}
+                            </p>
                             <p className="text-xs mt-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Claim used: </span>
+                                <span style={{ color: 'var(--text-secondary)' }}>Claim searched: </span>
                                 "{result.layer2?.claim_used || 'No claim extracted'}"
                             </p>
                         </LayerCard>
@@ -742,6 +864,9 @@ export default function VerifyPage() {
                     {allEntities.length > 0 && (
                         <div className="card p-5 fade-up-5">
                             <SectionHeading count={allEntities.length}>Named Entities</SectionHeading>
+                            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                                People, organizations, and places mentioned in the claim. These were used to search for related news articles.
+                            </p>
                             <ul className="flex flex-wrap gap-2" role="list">
                                 {allEntities.map((e, i) => (
                                     <li key={i}
@@ -765,6 +890,13 @@ export default function VerifyPage() {
                     {result.layer2?.sources?.length > 0 && (
                         <div className="card p-5 fade-up-5">
                             <SectionHeading count={result.layer2.sources.length}>Evidence Sources</SectionHeading>
+                            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                                News articles found that relate to this claim.
+                                <span style={{ color: 'var(--credible)' }}> Supports</span> = confirms the claim,
+                                <span style={{ color: 'var(--fake)' }}> Refutes</span> = contradicts it,
+                                <span style={{ color: 'var(--text-muted)' }}> Not Enough Info</span> = related but neutral.
+                                The % match shows how closely the article relates to the claim.
+                            </p>
                             <ul className="space-y-2" role="list">
                                 {result.layer2.sources.map((src, i) => {
                                     const { Icon: StanceIcon, color: stanceColor } = STANCE_ICON[src.stance] ?? STANCE_ICON['Not Enough Info']
