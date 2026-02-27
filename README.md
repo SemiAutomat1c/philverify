@@ -1,42 +1,80 @@
-# PhilVerify 🇵🇭🔍
-
-**Machine learning 2 final project**
-
-**Multimodal fake news detection for Philippine social media.**
-
-PhilVerify combines ML-based text classification with evidence retrieval to detect misinformation in Tagalog, English, and Taglish content. It supports text, URL, image (OCR), and video (ASR) inputs.
-
----
-
-## Features
-
-- **4 Input Types** — raw text, news URL, image (Tesseract OCR), video/audio (Whisper ASR)
-- **Language-Aware** — detects Tagalog / English / Taglish automatically
-- **NLP Pipeline** — NER, sentiment, emotion, clickbait detection, claim extraction
-- **Two-Layer Scoring**
-  - Layer 1: TF-IDF + Logistic Regression classifier (→ fine-tuned XLM-RoBERTa)
-  - Layer 2: NewsAPI evidence retrieval + cosine similarity + stance detection
-- **Final Score** = `(ML × 0.40) + (Evidence × 0.60)` → Credible / Unverified / Likely Fake
-- **Philippine Domain Credibility DB** — 4-tier system (Rappler Tier 1 → known fake sites Tier 4)
+<p align="center">
+  <img src="frontend/public/logo.svg" alt="PhilVerify Logo" width="150">
+</p>
+<p align="center">
+  <em>Multimodal fake news detection for Philippine social media.</em>
+</p>
+<p align="center">
+  <img src="https://img.shields.io/badge/Machine_Learning_2-Final_Project-blue?style=flat-square" alt="Project Status">
+  <img src="https://img.shields.io/badge/Python-3.12-blue?style=flat-square&logo=python" alt="Python">
+  <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi" alt="FastAPI">
+  <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react" alt="React">
+  <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License">
+</p>
 
 ---
 
-## Tech Stack
+## ✨ Features
 
-| Layer | Tech |
-|---|---|
-| Backend | FastAPI, Python 3.12, Pydantic v2 |
-| NLP | spaCy, HuggingFace Transformers, langdetect |
-| ML Classifier | scikit-learn (TF-IDF + LogReg → XLM-RoBERTa) |
-| OCR | Tesseract (`fil+eng`) |
-| ASR | OpenAI Whisper |
-| Evidence | NewsAPI, sentence-transformers |
-| Frontend *(planned)* | React, TailwindCSS, Chart.js |
-| Extension *(planned)* | Chrome Manifest V3 |
+- **🎤 Multimodal Detection** — Verify raw text, news URLs, images (Tesseract OCR), and video/audio (Whisper ASR)
+- **🇵🇭 Language-Aware** — Seamlessly handles Tagalog, English, and Taglish content
+- **🧠 Advanced NLP Pipeline** — Real-time entity recognition, sentiment/emotion analysis, and clickbait detection
+- **⚖️ Two-Layer Scoring** — Combines ML classification (TF-IDF/RoBERTa) with NewsAPI evidence retrieval
+- **🛡️ PH-Domain Verification** — Integrated database of Philippine news domain credibility tiers
 
 ---
 
-## Project Structure
+## 🚀 Quick Start
+
+### Prerequisites
+
+1. **Python 3.12+**
+2. **Tesseract OCR** (`brew install tesseract`)
+3. **Node.js** (for frontend development)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/SemiAutomat1c/philverify.git
+cd philverify
+
+# Set up Backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Set up Frontend
+cd frontend
+npm install
+```
+
+### Run
+
+```bash
+# Backend (from project root)
+uvicorn main:app --reload --port 8000
+
+# Frontend
+cd frontend
+npm run dev
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| **Core Backend** | Python 3.12, FastAPI, Pydantic v2 |
+| **NLP Engine** | spaCy, HuggingFace Transformers, langdetect |
+| **ML Classification** | scikit-learn (TF-IDF + LogReg), XLM-RoBERTa |
+| **OCR / ASR** | Tesseract (PH+EN support), OpenAI Whisper |
+| **Frontend** | React, TailwindCSS, Chart.js, Vite |
+
+---
+
+## 📁 Project Structure
 
 ```
 PhilVerify/
@@ -81,89 +119,12 @@ PhilVerify/
 
 ---
 
-## Getting Started
-
-### 1. Clone & set up environment
-
-```bash
-git clone https://github.com/SemiAutomat1c/philverify.git
-cd philverify
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Configure environment variables
-
-```bash
-cp .env.example .env
-# Edit .env and add your NEWS_API_KEY (optional but recommended)
-```
-
-### 3. Run the API
-
-```bash
-uvicorn main:app --reload --port 8000
-```
-
-### 4. Explore the docs
-
-Open **http://localhost:8000/docs** for the interactive Swagger UI.
-
----
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/verify/text` | Verify raw text |
-| `POST` | `/verify/url` | Verify a news URL |
-| `POST` | `/verify/image` | Verify an image (OCR) |
-| `POST` | `/verify/video` | Verify audio/video (Whisper ASR) |
-| `GET` | `/history` | Verification history (paginated) |
-| `GET` | `/trends` | Trending fake-news entities & topics |
-
-### Example request
-
-```bash
-curl -X POST http://localhost:8000/verify/text \
-  -H "Content-Type: application/json" \
-  -d '{"text": "GRABE! Namatay daw ang tatlong tao sa bagong sakit na kumakalat sa Pilipinas!"}'
-```
-
-### Example response
-
-```json
-{
-  "verdict": "Likely Fake",
-  "confidence": 82.4,
-  "final_score": 34.2,
-  "layer1": { "verdict": "Likely Fake", "confidence": 82.4, "triggered_features": ["namatay", "sakit", "kumakalat"] },
-  "layer2": { "verdict": "Unverified", "evidence_score": 50.0, "sources": [] },
-  "entities": { "persons": [], "organizations": [], "locations": ["Pilipinas"], "dates": [] },
-  "sentiment": "high negative",
-  "emotion": "fear",
-  "language": "Tagalog"
-}
-```
-
----
-
-## Running Tests
-
-```bash
-pytest tests/ -v
-# 23 passed in ~1s
-```
-
----
-
-## Roadmap
+## 📅 Roadmap
 
 - [x] Phase 1 — FastAPI backend skeleton
 - [x] Phase 2 — NLP preprocessing pipeline
 - [x] Phase 3 — TF-IDF baseline classifier
-- [ ] Phase 4 — NewsAPI evidence retrieval
+- [/] Phase 4 — NewsAPI evidence retrieval
 - [ ] Phase 5 — Scoring engine refinement (stance detection)
 - [ ] Phase 6 — React web dashboard
 - [ ] Phase 7 — Chrome Extension (Manifest V3)
@@ -171,6 +132,17 @@ pytest tests/ -v
 
 ---
 
-## License
+## 🤝 Contributing
+
+Contributions welcome! Please feel free to submit a Pull Request.
+
+---
+
+<p align="center">
+  <strong>⚠️ Disclaimer</strong><br>
+  <em>This tool is meant for research and educational purposes. Use responsibly and ethically when verifying information on social media.</em>
+</p>
+
+## 📝 License
 
 MIT
