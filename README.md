@@ -1,5 +1,7 @@
 # PhilVerify 🇵🇭🔍
 
+**Machine learning 2 final project**
+
 **Multimodal fake news detection for Philippine social media.**
 
 PhilVerify combines ML-based text classification with evidence retrieval to detect misinformation in Tagalog, English, and Taglish content. It supports text, URL, image (OCR), and video (ASR) inputs.
