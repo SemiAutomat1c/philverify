@@ -17,7 +17,7 @@ from api.schemas import (
 from scoring.engine import run_verification
 from inputs.url_scraper import scrape_url
 from inputs.ocr import extract_text_from_image
-from inputs.asr import transcribe_video
+from inputs.asr import transcribe_and_ocr_video
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/verify", tags=["Verification"])
@@ -167,8 +167,8 @@ async def verify_image(file: UploadFile = File(...)) -> VerificationResponse:
 @router.post(
     "/video",
     response_model=VerificationResponse,
-    summary="Verify a video/audio (Whisper ASR)",
-    description="Accepts a video or audio file. Runs Whisper ASR to transcribe, then verifies the transcript.",
+    summary="Verify a video/audio (Whisper ASR + Frame OCR)",
+    description="Accepts a video or audio file. Runs Whisper ASR and frame OCR in parallel — handles speech-only, on-screen text only, or both.",
 )
 async def verify_video(file: UploadFile = File(...)) -> VerificationResponse:
     start = time.perf_counter()
@@ -185,11 +185,12 @@ async def verify_video(file: UploadFile = File(...)) -> VerificationResponse:
         )
     try:
         media_bytes = await file.read()
-        text = await transcribe_video(media_bytes, filename=file.filename or "upload")
+        text = await transcribe_and_ocr_video(media_bytes, filename=file.filename or "upload")
         if not text or len(text.strip()) < 10:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Could not transcribe meaningful speech from the media file.",
+                detail="Could not extract any usable text from the media file. "
+                       "Ensure the video has audible speech or visible on-screen text.",
             )
         result = await run_verification(text, input_type="video")
         result.processing_time_ms = round((time.perf_counter() - start) * 1000, 1)
