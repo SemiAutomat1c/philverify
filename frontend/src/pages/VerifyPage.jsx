@@ -436,6 +436,62 @@ export default function VerifyPage() {
                             <label htmlFor={inputId} className="sr-only">
                                 {tab === 'url' ? 'Enter a URL to verify' : 'Enter text or headline to verify'}
                             </label>
+                            {/* Per-tab example suggestions */}
+                            {tab === 'text' && (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {[
+                                        'Marcos signs new law lowering rice prices',
+                                        'Leni Robredo arrested for treason',
+                                        'Duterte acquitted by ICC',
+                                        'DOH says COVID-19 vaccine causes cancer',
+                                    ].map(example => (
+                                        <button
+                                            key={example}
+                                            type="button"
+                                            onClick={() => setInput(example)}
+                                            className="text-xs px-2.5 py-1 rounded-full transition-colors"
+                                            style={{
+                                                background: 'var(--bg-elevated)',
+                                                border: '1px solid var(--border)',
+                                                color: 'var(--text-secondary)',
+                                                fontFamily: 'var(--font-body)',
+                                                cursor: 'pointer',
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-red)'; e.currentTarget.style.color = 'var(--accent-red)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                                        >
+                                            {example}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {tab === 'url' && (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {[
+                                        'https://rappler.com/nation/',
+                                        'https://mb.com.ph/news/',
+                                        'https://newsinfo.inquirer.net/',
+                                    ].map(example => (
+                                        <button
+                                            key={example}
+                                            type="button"
+                                            onClick={() => setInput(example)}
+                                            className="text-xs px-2.5 py-1 rounded-full transition-colors"
+                                            style={{
+                                                background: 'var(--bg-elevated)',
+                                                border: '1px solid var(--border)',
+                                                color: 'var(--text-secondary)',
+                                                fontFamily: 'var(--font-mono, monospace)',
+                                                cursor: 'pointer',
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-red)'; e.currentTarget.style.color = 'var(--accent-red)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                                        >
+                                            {example}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             <textarea
                                 id={inputId}
                                 value={input}
@@ -467,7 +523,16 @@ export default function VerifyPage() {
                         </div>
                     ) : (
                         /* Drag-and-drop file zone */
-                        <div>
+                        <div className="space-y-2">
+                            {/* Per-tab hint */}
+                            <p className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                                {tab === 'image' && <>
+                                    Upload a screenshot of a news article, social media post, or image with text. <span style={{ color: 'var(--text-secondary)' }}>Supports JPG, PNG, WEBP.</span> Text is extracted via OCR.
+                                </>}
+                                {tab === 'video' && <>
+                                    Upload a video clip or audio recording. <span style={{ color: 'var(--text-secondary)' }}>Supports MP4, WEBM, MOV, MP3, WAV.</span> Speech is transcribed and on-screen text is extracted.
+                                </>}
+                            </p>
                             <label htmlFor={`file-${tab}`} className="sr-only">
                                 Upload {tab === 'image' ? 'an image' : 'a video or audio file'}
                             </label>
