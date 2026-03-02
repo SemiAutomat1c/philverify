@@ -1,5 +1,8 @@
-/** PhilVerify API client — proxied through Vite to http://localhost:8000 */
-const BASE = '/api'
+/** PhilVerify API client
+ * Dev:        Vite proxies /api → http://localhost:8000
+ * Production: Set VITE_API_BASE_URL to your backend URL (e.g. HF Space)
+ */
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '') || '/api'
 
 function _detailToString(detail, status) {
     if (!detail) return `HTTP ${status}`

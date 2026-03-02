@@ -237,6 +237,7 @@ export default function VerifyPage() {
     const [tab, setTab] = useState(persisted?.tab ?? 'text')
     const [input, setInput] = useState(persisted?.input ?? '')
     const [file, setFile] = useState(null)
+    const [fileObjectUrl, setFileObjectUrl] = useState(null)
     const [dragOver, setDragOver] = useState(false)
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState(persisted?.result ?? null)
@@ -256,6 +257,14 @@ export default function VerifyPage() {
             if (submittedInput?.fileUrl) URL.revokeObjectURL(submittedInput.fileUrl)
         }
     }, [submittedInput])
+
+    /* Create/revoke object URL for in-form file preview */
+    useEffect(() => {
+        if (!file) { setFileObjectUrl(null); return }
+        const url = URL.createObjectURL(file)
+        setFileObjectUrl(url)
+        return () => URL.revokeObjectURL(url)
+    }, [file])
 
     /* Persist result + input to sessionStorage so state survives navigation/refresh */
     useEffect(() => {
@@ -321,12 +330,13 @@ export default function VerifyPage() {
     }
 
     function handleTabChange(id) {
-        setTab(id); setInput(''); setFile(null); setResult(null); setError(null); setSubmittedInput(null); setUrlPreview(null)
+        setTab(id); setInput(''); setFile(null); setFileObjectUrl(null); setResult(null); setError(null); setSubmittedInput(null); setUrlPreview(null)
         sessionStorage.removeItem(STORAGE_KEY)
     }
 
     function handleVerifyAgain() {
         setResult(null); setError(null); setExtractedTextOpen(false)
+        setFile(null); setFileObjectUrl(null); setUrlPreview(null); setSubmittedInput(null)
         sessionStorage.removeItem(STORAGE_KEY)
         // Smooth-scroll back to the input panel
         requestAnimationFrame(() => {
@@ -482,11 +492,45 @@ export default function VerifyPage() {
                                     name={tab === 'image' ? 'media-image' : 'media-video'}
                                     accept={tab === 'image' ? 'image/*' : 'video/*,audio/*'}
                                     onChange={e => setFile(e.target.files[0])} />
-                                <Upload size={18} aria-hidden="true"
-                                    style={{ margin: '0 auto 8px', color: file ? 'var(--accent-red)' : 'var(--text-muted)' }} />
-                                {file
-                                    ? <p className="text-sm font-semibold" style={{ color: 'var(--accent-red)', fontFamily: 'var(--font-display)' }}>{file.name}</p>
-                                    : <>
+                                {file && fileObjectUrl && tab === 'image' ? (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <img
+                                            src={fileObjectUrl}
+                                            alt={file.name}
+                                            style={{
+                                                maxHeight: 200,
+                                                maxWidth: '100%',
+                                                borderRadius: 2,
+                                                border: '1px solid var(--border)',
+                                                objectFit: 'contain',
+                                            }}
+                                        />
+                                        <p className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                            {file.name} · {(file.size / 1024).toFixed(1)} KB
+                                        </p>
+                                    </div>
+                                ) : file && fileObjectUrl && tab === 'video' ? (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <video
+                                            src={fileObjectUrl}
+                                            controls
+                                            onClick={e => e.stopPropagation()}
+                                            style={{
+                                                maxHeight: 200,
+                                                maxWidth: '100%',
+                                                borderRadius: 2,
+                                                border: '1px solid var(--border)',
+                                                background: '#000',
+                                            }}
+                                        />
+                                        <p className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                            {file.name} · {(file.size / (1024 * 1024)).toFixed(2)} MB
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Upload size={18} aria-hidden="true"
+                                            style={{ margin: '0 auto 8px', color: 'var(--text-muted)' }} />
                                         <p className="text-sm" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
                                             Drop or click to upload {tab === 'image' ? 'image' : 'video / audio'}
                                         </p>
@@ -494,7 +538,7 @@ export default function VerifyPage() {
                                             or press <kbd style={{ background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: 2, padding: '1px 5px', fontFamily: 'var(--font-mono)', fontSize: 10 }}>Ctrl+V</kbd> to paste from clipboard
                                         </p>
                                     </>
-                                }
+                                )}
                             </div>
                         </div>
                     )}
@@ -525,13 +569,33 @@ export default function VerifyPage() {
                 <div className="card p-4 fade-up" style={{ borderLeft: '3px solid var(--accent-red)' }}>
                     <p className="text-xs font-semibold uppercase tracking-widest mb-2"
                         style={{ fontFamily: 'var(--font-display)', color: 'var(--text-muted)', letterSpacing: '0.15em' }}>
-                        Verified Input
+                        {submittedInput.type === 'url' ? 'Scraped Text'
+                            : submittedInput.type === 'image' ? 'OCR Extracted Text'
+                            : submittedInput.type === 'video' ? 'Transcribed Text'
+                            : 'Verified Input'}
                     </p>
                     {submittedInput.type === 'url' && (
                         <div className="space-y-2">
-                            {/* Rich article card if preview is available */}
-                            {submittedInput.preview
-                                ? <URLPreviewCard preview={submittedInput.preview} loading={false} url={submittedInput.text} />
+                            {result?.extracted_text
+                                ? (
+                                    <pre style={{
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-word',
+                                        fontFamily: 'var(--font-mono)',
+                                        fontSize: 12,
+                                        lineHeight: 1.7,
+                                        color: 'var(--text-secondary)',
+                                        background: 'var(--bg-elevated)',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: 2,
+                                        padding: '12px 14px',
+                                        maxHeight: 280,
+                                        overflowY: 'auto',
+                                        margin: 0,
+                                    }}>
+                                        {result.extracted_text}
+                                    </pre>
+                                )
                                 : (
                                     <a href={submittedInput.text} target="_blank" rel="noreferrer"
                                         className="flex items-center gap-2 text-sm"
@@ -560,45 +624,67 @@ export default function VerifyPage() {
                         </p>
                     )}
                     {submittedInput.type === 'image' && (
-                        <div className="flex items-start gap-3">
-                            {submittedInput.fileUrl && (
-                                <img
-                                    src={submittedInput.fileUrl}
-                                    alt="Submitted image preview"
-                                    style={{
-                                        width: 72, height: 72,
-                                        objectFit: 'cover',
-                                        borderRadius: 2,
-                                        border: '1px solid var(--border)',
-                                        flexShrink: 0,
-                                    }} />
-                            )}
-                            <div>
-                                <p className="text-sm font-semibold"
-                                    style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                                    {submittedInput.file?.name}
-                                </p>
-                                <p className="text-xs mt-0.5"
-                                    style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                                    {submittedInput.file ? (submittedInput.file.size / 1024).toFixed(1) + ' KB' : ''}
-                                </p>
-                            </div>
-                        </div>
+                        result?.extracted_text
+                            ? (
+                                <pre style={{
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                    fontFamily: 'var(--font-mono)',
+                                    fontSize: 12,
+                                    lineHeight: 1.7,
+                                    color: 'var(--text-secondary)',
+                                    background: 'var(--bg-elevated)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: 2,
+                                    padding: '12px 14px',
+                                    maxHeight: 280,
+                                    overflowY: 'auto',
+                                    margin: 0,
+                                }}>
+                                    {result.extracted_text}
+                                </pre>
+                            )
+                            : (
+                                <div className="flex items-center gap-3">
+                                    {submittedInput.fileUrl && (
+                                        <img src={submittedInput.fileUrl} alt=""
+                                            style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 2, border: '1px solid var(--border)', flexShrink: 0 }} />
+                                    )}
+                                    <p className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                        {submittedInput.file?.name}
+                                    </p>
+                                </div>
+                            )
                     )}
                     {submittedInput.type === 'video' && (
-                        <div className="flex items-center gap-2">
-                            <Video size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden="true" />
-                            <div>
-                                <p className="text-sm font-semibold"
-                                    style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                                    {submittedInput.file?.name}
-                                </p>
-                                <p className="text-xs mt-0.5"
-                                    style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                                    {submittedInput.file ? (submittedInput.file.size / (1024 * 1024)).toFixed(2) + ' MB' : ''}
-                                </p>
-                            </div>
-                        </div>
+                        result?.extracted_text
+                            ? (
+                                <pre style={{
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                    fontFamily: 'var(--font-mono)',
+                                    fontSize: 12,
+                                    lineHeight: 1.7,
+                                    color: 'var(--text-secondary)',
+                                    background: 'var(--bg-elevated)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: 2,
+                                    padding: '12px 14px',
+                                    maxHeight: 280,
+                                    overflowY: 'auto',
+                                    margin: 0,
+                                }}>
+                                    {result.extracted_text}
+                                </pre>
+                            )
+                            : (
+                                <div className="flex items-center gap-2">
+                                    <Video size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden="true" />
+                                    <p className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                        {submittedInput.file?.name}
+                                    </p>
+                                </div>
+                            )
                     )}
                 </div>
             )}
@@ -725,86 +811,6 @@ export default function VerifyPage() {
                             {scoreInterpretation(result.final_score)}
                         </p>
                     </div>
-
-                    {/* Row 2½: Extracted Text (collapsible) */}
-                    {result.extracted_text && (
-                        <div className="card fade-up-3" style={{ overflow: 'hidden' }}>
-                            <button
-                                onClick={() => setExtractedTextOpen(o => !o)}
-                                className="w-full flex items-center justify-between px-5 py-3 transition-colors"
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    borderBottom: extractedTextOpen ? '1px solid var(--border)' : 'none',
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                                onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                                aria-expanded={extractedTextOpen}
-                                aria-controls="extracted-text-panel"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-semibold uppercase tracking-widest"
-                                        style={{ fontFamily: 'var(--font-display)', color: 'var(--text-muted)', letterSpacing: '0.15em' }}>
-                                        {result.input_type === 'image' ? 'OCR Extracted Text'
-                                            : result.input_type === 'video' ? 'Transcribed Text'
-                                            : result.input_type === 'url' ? 'Scraped Text'
-                                            : 'Analyzed Text'}
-                                    </span>
-                                    <span className="text-xs tabular"
-                                        style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
-                                        {result.extracted_text.length} chars
-                                    </span>
-                                </div>
-                                <ChevronRight size={13}
-                                    style={{
-                                        color: 'var(--text-muted)',
-                                        transform: extractedTextOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-                                        transition: 'transform 200ms ease',
-                                        flexShrink: 0,
-                                    }}
-                                    aria-hidden="true"
-                                />
-                            </button>
-                            {extractedTextOpen && (
-                                <div id="extracted-text-panel" className="px-5 py-4">
-                                    {result.input_type === 'url' && (
-                                        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                                            This is the text our scraper extracted from the URL. If it looks wrong or incomplete, the page may have been partially blocked.
-                                        </p>
-                                    )}
-                                    {result.input_type === 'image' && (
-                                        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                                            This is the text read from your image using OCR. Poor image quality may cause errors.
-                                        </p>
-                                    )}
-                                    {result.input_type === 'video' && (
-                                        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                                            This is the speech transcribed from your video/audio file.
-                                        </p>
-                                    )}
-                                    <pre
-                                        style={{
-                                            whiteSpace: 'pre-wrap',
-                                            wordBreak: 'break-word',
-                                            fontFamily: 'var(--font-mono)',
-                                            fontSize: 12,
-                                            lineHeight: 1.7,
-                                            color: 'var(--text-secondary)',
-                                            background: 'var(--bg-elevated)',
-                                            border: '1px solid var(--border)',
-                                            borderRadius: 2,
-                                            padding: '12px 14px',
-                                            maxHeight: 280,
-                                            overflowY: 'auto',
-                                        }}
-                                    >
-                                        {result.extracted_text}
-                                    </pre>
-                                </div>
-                            )}
-                        </div>
-                    )}
 
                     {/* Row 3: Layer cards (2 col, collapses to 1 on mobile) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 fade-up-4">

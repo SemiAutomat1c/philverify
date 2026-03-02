@@ -1,3 +1,13 @@
+---
+title: PhilVerify API
+emoji: 🇵🇭
+colorFrom: red
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 <p align="center">
   <img src="frontend/public/logo.svg" alt="PhilVerify Logo" width="150">
 </p>

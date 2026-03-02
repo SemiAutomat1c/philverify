@@ -1,6 +1,6 @@
-# ── PhilVerify API — Cloud Run Dockerfile ─────────────────────────────────────
+# ── PhilVerify API — Dockerfile (Cloud Run + Hugging Face Spaces) ─────────────
 # Build:  docker build -t philverify-api .
-# Run:    docker run -p 8080:8080 --env-file .env philverify-api
+# Run:    docker run -p 7860:7860 --env-file .env philverify-api
 
 FROM python:3.12-slim
 
@@ -56,12 +56,12 @@ print('All HuggingFace models cached.'); \
 " || true
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
-# Cloud Run sets PORT automatically; default to 8080 for local runs.
-ENV PORT=8080
+# HF Spaces uses port 7860 by default. Cloud Run overrides PORT via env var.
+ENV PORT=7860
 ENV APP_ENV=production
 ENV DEBUG=false
 
-EXPOSE 8080
+EXPOSE 7860
 
 # Use exec form so signals (SIGTERM) reach uvicorn directly
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 1 --timeout-keep-alive 75"]
