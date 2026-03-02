@@ -1,6 +1,6 @@
 ---
 title: PhilVerify API
-emoji: 🇵🇭
+emoji: 🔍
 colorFrom: red
 colorTo: blue
 sdk: docker
