@@ -117,8 +117,11 @@ async def root():
 
 
 # Cloud Run health check (no /api prefix so load balancer can reach it)
+# HEAD support for UptimeRobot and other uptime monitors
 @app.get("/health", tags=["Health"])
+@app.head("/health", tags=["Health"])
 @app.get("/api/health", tags=["Health"])
+@app.head("/api/health", tags=["Health"])
 async def health():
     return {"status": "ok", "env": settings.app_env}
 
