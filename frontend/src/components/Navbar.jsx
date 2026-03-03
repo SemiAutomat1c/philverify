@@ -1,8 +1,9 @@
 import { NavLink, Link } from 'react-router-dom'
-import { Radar, Clock, TrendingUp, ShieldCheck } from 'lucide-react'
+import { Radar, Clock, TrendingUp, ShieldCheck, Home } from 'lucide-react'
 import { PAGE_STYLE } from '../App.jsx'
 
 const NAV_LINKS = [
+    { to: '/', icon: Home, label: 'Home' },
     { to: '/verify', icon: ShieldCheck, label: 'Verify' },
     { to: '/history', icon: Clock, label: 'History' },
     { to: '/trends', icon: TrendingUp, label: 'Trends' },

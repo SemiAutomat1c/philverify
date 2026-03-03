@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FileText, Link2, Image, Video, ArrowRight, Database, ShieldCheck, Github, BookOpen, Clock, TrendingUp } from 'lucide-react'
+import { FileText, Link2, Image, Video, ArrowRight, Database, ShieldCheck, Github, BookOpen, Clock, TrendingUp, RefreshCw } from 'lucide-react'
 import { PAGE_STYLE } from '../App.jsx'
 
 /* ─── data ──────────────────────────────────────────────────── */
@@ -81,6 +81,11 @@ export default function LandingPage() {
           position: 'relative',
           overflow: 'hidden',
           borderBottom: '1px solid var(--border)',
+          backgroundColor: '#0d0d0d',
+          backgroundImage: [
+            'repeating-linear-gradient(45deg, rgba(245,240,232,0.022) 0px, rgba(245,240,232,0.022) 1px, transparent 1px, transparent 28px)',
+            'repeating-linear-gradient(-45deg, rgba(245,240,232,0.022) 0px, rgba(245,240,232,0.022) 1px, transparent 1px, transparent 28px)',
+          ].join(', '),
         }}
       >
         {/* Red diagonal gradient overlay */}
@@ -109,8 +114,16 @@ export default function LandingPage() {
           }}
         />
 
-        {/* Content */}
-        <div style={{ ...PAGE_STYLE, paddingTop: 80, paddingBottom: 80 }}>
+        {/* Content — two-column: headline left, mock preview right */}
+        <div style={{
+          ...PAGE_STYLE,
+          paddingTop: 80,
+          paddingBottom: 80,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 64,
+        }}>
+          <div style={{ flex: '1 1 auto', minWidth: 0 }}>
           {/* Eyebrow */}
           <p
             className="fade-up-1"
@@ -126,18 +139,18 @@ export default function LandingPage() {
             Philippine Fact-Check Engine &nbsp;·&nbsp; Multimodal AI
           </p>
 
-          {/* Main headline — clamp as per UI/UX Pro Max exaggerated-minimalism */}
+          {/* Main headline */}
           <h1
             className="fade-up-2"
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: 'clamp(2.8rem, 9vw, 7.5rem)',
+              fontSize: 'clamp(2rem, 3.6vw, 3.8rem)',
               fontWeight: 800,
-              lineHeight: 0.95,
+              lineHeight: 0.93,
               letterSpacing: '-0.03em',
               color: 'var(--text-primary)',
               marginBottom: 32,
-              maxWidth: 820,
+              whiteSpace: 'nowrap',
             }}
           >
             VERIFY<br />
@@ -145,19 +158,19 @@ export default function LandingPage() {
             <span style={{ color: 'var(--accent-red)' }}>YOU SHARE.</span>
           </h1>
 
-          {/* Subline */}
+          {/* Subline — #8: tighter max-width prevents bad wrapping at mid viewports */}
           <p
             className="fade-up-3"
             style={{
               fontFamily: 'var(--font-body)',
-              fontSize: 'clamp(1rem, 2vw, 1.2rem)',
+              fontSize: 'clamp(1rem, 1.8vw, 1.15rem)',
               color: 'var(--text-secondary)',
-              maxWidth: 520,
-              lineHeight: 1.7,
+              maxWidth: 440,
+              lineHeight: 1.75,
               marginBottom: 48,
             }}
           >
-            PhilVerify checks claims, URLs, images, and videos against live news evidence — built for Tagalog, English, and Taglish content.
+            PhilVerify checks claims, URLs, images, and videos against live news evidence — built for Tagalog, English, and Taglish.
           </p>
 
           {/* CTA */}
@@ -212,6 +225,165 @@ export default function LandingPage() {
             >
               API Docs
             </a>
+          </div>
+          </div>{/* end left col */}
+
+          {/* Right column: mock result card — faithful miniature of the real output */}
+          <div
+            className="hero-mock"
+            aria-hidden="true"
+            style={{
+              flex: '0 0 340px',
+              width: 340,
+              background: 'var(--bg-base)',
+              border: '1px solid var(--border)',
+              position: 'relative',
+              overflow: 'hidden',
+              alignSelf: 'stretch',
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            {/* Fade-out at bottom */}
+            <div style={{
+              position: 'absolute',
+              bottom: 0, left: 0, right: 0, height: 120,
+              background: 'linear-gradient(transparent, var(--bg-base))',
+              zIndex: 2,
+              pointerEvents: 'none',
+            }} />
+
+            {/* Header bar */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '8px 12px',
+              borderBottom: '1px solid var(--border)',
+              background: 'var(--bg-surface)',
+            }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Last Verification</span>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontFamily: 'var(--font-display)', fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                color: 'var(--accent-red)', cursor: 'default',
+              }}>
+                <RefreshCw size={8} strokeWidth={2} /> Verify Again
+              </span>
+            </div>
+
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+              {/* Row 1: gauge + verdict explanation */}
+              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 8 }}>
+                {/* Gauge */}
+                <div style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  padding: '10px 6px', gap: 6,
+                }}>
+                  <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+                    <circle cx="26" cy="26" r="22" stroke="var(--bg-elevated)" strokeWidth="5" fill="none"/>
+                    <circle cx="26" cy="26" r="22" stroke="#dc2626" strokeWidth="5" fill="none"
+                      strokeDasharray={`${2*Math.PI*22*0.32} ${2*Math.PI*22*(1-0.32)}`}
+                      strokeDashoffset={2*Math.PI*22*0.25} strokeLinecap="butt" transform="rotate(-90 26 26)"/>
+                    <text x="26" y="29" textAnchor="middle" fill="#dc2626" fontSize="13" fontWeight="800" fontFamily="Syne, sans-serif">32</text>
+                  </svg>
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 7, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Credibility</span>
+                  <span style={{
+                    fontFamily: 'var(--font-display)', fontSize: 8, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
+                    padding: '2px 6px', background: 'rgba(220,38,38,0.15)', color: '#f87171', border: '1px solid rgba(220,38,38,0.4)',
+                  }}>✕ False</span>
+                </div>
+                {/* Verdict box + meta */}
+                <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', padding: '8px' }}>
+                  <div style={{ padding: '6px 7px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)', marginBottom: 7 }}>
+                    <p style={{ fontFamily: 'var(--font-display)', fontSize: 8, fontWeight: 700, color: '#f87171', marginBottom: 2 }}>What does this mean?</p>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--text-secondary)', lineHeight: 1.5 }}>Strong signs of false or misleading content. Verify from trusted sources.</p>
+                  </div>
+                  <p style={{ fontFamily: 'var(--font-display)', fontSize: 7, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 4 }}>Analysis Details</p>
+                  {[['Language','English'],['Sentiment','neutral'],['Emotion','neutral'],['Confidence','73.9%'],['Processed in','33412 ms']].map(([k,v],i) => (
+                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--text-muted)' }}>{k}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: i >= 3 ? '#dc2626' : 'var(--text-secondary)' }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Score breakdown */}
+              <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', padding: '8px' }}>
+                <p style={{ fontFamily: 'var(--font-display)', fontSize: 7, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>Score Breakdown</p>
+                {[
+                  ['ML Classifier (Layer 1 — 40% weight)', 74, 'var(--accent-cyan, #22d3ee)'],
+                  ['Evidence Cross-Check (Layer 2 — 60% weight)', 36, '#f59e0b'],
+                  ['Final Credibility Score', 32, '#dc2626'],
+                ].map(([label, val, color]) => (
+                  <div key={label} style={{ marginBottom: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--text-muted)' }}>{label}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, fontWeight: 700, color }}>{val}%</span>
+                    </div>
+                    <div style={{ height: 3, background: 'var(--bg-elevated)' }}>
+                      <div style={{ width: `${val}%`, height: '100%', background: color }} />
+                    </div>
+                  </div>
+                ))}
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: '#dc2626', marginTop: 4, fontWeight: 600 }}>Likely false — multiple red flags and contradicting evidence found.</p>
+              </div>
+
+              {/* Layer cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[
+                  { title: 'Layer 1 — AI Analysis', score: 74, verdict: '? Unverified', body: 'The AI model found this mostly consistent with credible content.' },
+                  { title: 'Layer 2 — Evidence Check', score: 36, verdict: '? Unverified', body: 'Found 5 related articles — some contradict or debunk this claim.' },
+                ].map(({ title, score, verdict, body }) => (
+                  <div key={title} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', padding: '8px' }}>
+                    <p style={{ fontFamily: 'var(--font-display)', fontSize: 7, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: 3 }}>{title}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontFamily: 'var(--font-display)', fontSize: 7, fontWeight: 700, padding: '1px 5px', background: 'rgba(234,179,8,0.12)', color: '#fbbf24', border: '1px solid rgba(234,179,8,0.3)' }}>{verdict}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: '#fbbf24' }}>{score}%</span>
+                    </div>
+                    <div style={{ height: 2, background: 'var(--bg-elevated)', marginBottom: 5 }}>
+                      <div style={{ width: `${score}%`, height: '100%', background: '#fbbf24' }} />
+                    </div>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{body}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Named Entities */}
+              <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', padding: '8px' }}>
+                <p style={{ fontFamily: 'var(--font-display)', fontSize: 7, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 5 }}>Named Entities <span style={{ color: 'var(--accent-red)' }}>1</span></p>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 6px', background: 'var(--bg-elevated)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 7, letterSpacing: '0.1em', color: '#f87171' }}>PERSON</span>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--text-primary)' }}>Marcos</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Evidence Sources */}
+              <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', padding: '8px' }}>
+                <p style={{ fontFamily: 'var(--font-display)', fontSize: 7, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 5 }}>Evidence Sources <span style={{ color: 'var(--accent-red)' }}>5</span></p>
+                {[
+                  ['PBBM: 1.4K OFWs want out, PH in talks with Middle East authorities', 'Philippine News Agency', '18%'],
+                  ['PNP: No continuing killings under Marcos administration', 'Inquirer.net', '46%'],
+                  ['Marcos hoping for ceasefire in the Middle East', 'ABS-CBN', '34%'],
+                  ['Marcos manages to silence the press', 'The Manila Times', '45%'],
+                ].map(([title, source, pct]) => (
+                  <div key={title} style={{ padding: '5px 6px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', marginBottom: 4 }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--text-primary)', marginBottom: 2, lineHeight: 1.4 }}>{title}</p>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'var(--text-muted)' }}>{source}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'var(--text-muted)' }}>Not Enough Info</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'var(--text-muted)' }}>{pct} match</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+            </div>
           </div>
         </div>
       </section>
@@ -322,7 +494,7 @@ export default function LandingPage() {
             {MODES.map(({ icon: Icon, label, desc }) => (
               <Link
                 key={label}
-                to="/verify"
+                to={`/verify?tab=${label.toLowerCase()}`}
                 style={{ textDecoration: 'none' }}
               >
                 <div
@@ -335,28 +507,33 @@ export default function LandingPage() {
                     transition: 'border-color 0.2s ease-out, background 0.2s ease-out',
                     cursor: 'pointer',
                     height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
                   }}
                   onMouseEnter={e => {
                     e.currentTarget.style.borderLeftColor = 'var(--accent-red)'
                     e.currentTarget.style.background = 'var(--bg-elevated)'
+                    const cta = e.currentTarget.querySelector('.mode-cta')
+                    if (cta) { cta.style.opacity = '1'; cta.style.transform = 'translateY(0)' }
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.borderLeftColor = 'transparent'
                     e.currentTarget.style.background = 'var(--bg-surface)'
+                    const cta = e.currentTarget.querySelector('.mode-cta')
+                    if (cta) { cta.style.opacity = '0'; cta.style.transform = 'translateY(5px)' }
                   }}
                 >
                   <Icon
-                    size={20}
-                    strokeWidth={1.5}
-                    style={{ color: 'var(--accent-red)', marginBottom: 16 }}
+                    size={28}
+                    strokeWidth={1.4}
+                    style={{ color: 'var(--accent-red)', marginBottom: 20 }}
                   />
                   <div
                     style={{
                       fontFamily: 'var(--font-display)',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      letterSpacing: '0.15em',
-                      textTransform: 'uppercase',
+                      fontSize: 17,
+                      fontWeight: 800,
+                      letterSpacing: '-0.01em',
                       color: 'var(--text-primary)',
                       marginBottom: 10,
                     }}
@@ -366,13 +543,34 @@ export default function LandingPage() {
                   <p
                     style={{
                       fontFamily: 'var(--font-body)',
-                      fontSize: 14,
+                      fontSize: 13,
                       color: 'var(--text-secondary)',
                       lineHeight: 1.6,
+                      flex: 1,
                     }}
                   >
                     {desc}
                   </p>
+                  <div
+                    className="mode-cta"
+                    style={{
+                      marginTop: 18,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: '0.15em',
+                      textTransform: 'uppercase',
+                      color: 'var(--accent-red)',
+                      opacity: 0,
+                      transform: 'translateY(5px)',
+                      transition: 'opacity 0.2s ease-out, transform 0.2s ease-out',
+                    }}
+                  >
+                    Try {label} <ArrowRight size={12} strokeWidth={2.5} />
+                  </div>
                 </div>
               </Link>
             ))}
@@ -382,7 +580,7 @@ export default function LandingPage() {
 
       {/* ── Inline CTA Teaser ─────────────────────────────── */}
       <section style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-elevated)' }}>
-        <div style={{ ...PAGE_STYLE, paddingTop: 48, paddingBottom: 48 }}>
+        <div style={{ ...PAGE_STYLE, paddingTop: 48, paddingBottom: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
           <p style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 11,
@@ -393,7 +591,7 @@ export default function LandingPage() {
           }}>
             Try it now — no account needed
           </p>
-          <form onSubmit={handleTrySubmit} style={{ display: 'flex', gap: 0, maxWidth: 640 }}>
+          <form onSubmit={handleTrySubmit} style={{ display: 'flex', gap: 0, width: '100%' }}>
             <input
               type="text"
               value={tryInput}
@@ -584,12 +782,12 @@ export default function LandingPage() {
           <h2
             style={{
               fontFamily: 'var(--font-display)',
-              fontSize: 'clamp(1.8rem, 5vw, 3.5rem)',
+              fontSize: 'clamp(1.6rem, 3.5vw, 3rem)',
               fontWeight: 800,
               letterSpacing: '-0.02em',
               color: '#fff',
-              lineHeight: 1,
-              maxWidth: 600,
+              lineHeight: 1.05,
+              maxWidth: 700,
             }}
           >
             STOP MISINFORMATION.<br />START VERIFYING.

@@ -289,6 +289,12 @@ a.nav-link-item:hover > div {
   grid-template-columns: repeat(3, 1fr);
 }
 
+@media (max-width: 900px) {
+  .hero-mock {
+    display: none !important;
+  }
+}
+
 @media (max-width: 640px) {
   .landing-stats {
     grid-template-columns: 1fr !important;
@@ -312,6 +318,10 @@ a.nav-link-item:hover > div {
   .footer-grid {
     grid-template-columns: 1fr !important;
     gap: 32px !important;
+  }
+
+  .hero-mock {
+    display: none !important;
   }
 }
 
