@@ -308,6 +308,11 @@ a.nav-link-item:hover > div {
   .landing-steps {
     flex-direction: column;
   }
+
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
 }
 
 /* ── Verdict breaking-news banner ──────────────────────── */

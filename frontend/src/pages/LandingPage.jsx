@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom'
-import { FileText, Link2, Image, Video, ArrowRight, Database, ShieldCheck } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { FileText, Link2, Image, Video, ArrowRight, Database, ShieldCheck, Github, BookOpen, Clock, TrendingUp } from 'lucide-react'
 import { PAGE_STYLE } from '../App.jsx'
 
 /* ─── data ──────────────────────────────────────────────────── */
@@ -50,11 +51,23 @@ const STEPS = [
 const STATS = [
   { value: '70M+', label: 'Filipinos online', sub: 'one of the highest social media usage rates in the world' },
   { value: '6×', label: 'faster spread', sub: 'misinformation travels six times faster than verified news' },
-  { value: '2026', label: 'election year', sub: 'disinformation campaigns at all-time high during election cycles' },
+  { value: '3.8B', label: 'fake engagements', sub: 'estimated fake-news interactions on PH social media annually' },
 ]
 
 /* ─── component ─────────────────────────────────────────────── */
 export default function LandingPage() {
+  const navigate = useNavigate()
+  const [tryInput, setTryInput] = useState('')
+
+  function handleTrySubmit(e) {
+    e.preventDefault()
+    if (tryInput.trim()) {
+      navigate('/verify', { state: { prefill: tryInput.trim() } })
+    } else {
+      navigate('/verify')
+    }
+  }
+
   return (
     <div style={{ background: 'var(--bg-base)', overflowX: 'hidden' }}>
 
@@ -367,6 +380,67 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Inline CTA Teaser ─────────────────────────────── */}
+      <section style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-elevated)' }}>
+        <div style={{ ...PAGE_STYLE, paddingTop: 48, paddingBottom: 48 }}>
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+            color: 'var(--text-muted)',
+            marginBottom: 16,
+          }}>
+            Try it now — no account needed
+          </p>
+          <form onSubmit={handleTrySubmit} style={{ display: 'flex', gap: 0, maxWidth: 640 }}>
+            <input
+              type="text"
+              value={tryInput}
+              onChange={e => setTryInput(e.target.value)}
+              placeholder="Paste any claim, headline, or URL…"
+              style={{
+                flex: 1,
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border)',
+                borderRight: 'none',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-body)',
+                fontSize: 15,
+                padding: '14px 20px',
+                outline: 'none',
+              }}
+              onFocus={e => e.target.style.borderColor = 'var(--accent-red)'}
+              onBlur={e => e.target.style.borderColor = 'var(--border)'}
+            />
+            <button
+              type="submit"
+              style={{
+                background: 'var(--accent-red)',
+                color: '#fff',
+                border: 'none',
+                fontFamily: 'var(--font-display)',
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                padding: '14px 24px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                whiteSpace: 'nowrap',
+                transition: 'background 0.2s ease-out',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#b91c1c'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-red)'}
+            >
+              Verify <ArrowRight size={14} strokeWidth={2.5} />
+            </button>
+          </form>
+        </div>
+      </section>
+
       {/* ── How It Works ─────────────────────────────────────── */}
       <section style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
         <div style={{ ...PAGE_STYLE, paddingTop: 80, paddingBottom: 80 }}>
@@ -410,53 +484,61 @@ export default function LandingPage() {
                   padding: '0 40px 0 0',
                   borderRight: i < STEPS.length - 1 ? '1px solid var(--border)' : 'none',
                   marginRight: i < STEPS.length - 1 ? 40 : 0,
-                  paddingBottom: 0,
                 }}
               >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    marginBottom: 24,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 'clamp(2rem, 4vw, 3rem)',
-                      fontWeight: 700,
-                      color: 'var(--bg-elevated)',
-                      letterSpacing: '-0.04em',
-                      lineHeight: 1,
-                      WebkitTextStroke: '1px var(--border-light)',
-                    }}
-                  >
-                    {num}
-                  </span>
+                {/* Step number pill */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
                   <div
                     style={{
-                      width: 1,
+                      width: 40,
                       height: 40,
-                      background: 'var(--border)',
+                      borderRadius: 2,
+                      background: i === 0 ? 'var(--accent-red)' : 'var(--bg-elevated)',
+                      border: i === 0 ? 'none' : '1px solid var(--border-light)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
                     }}
-                  />
+                  >
+                    <Icon size={16} strokeWidth={1.8}
+                      style={{ color: i === 0 ? '#fff' : 'var(--text-secondary)' }}
+                    />
+                  </div>
                   <div>
-                    <div
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: 'var(--text-muted)',
+                        letterSpacing: '0.2em',
+                        display: 'block',
+                      }}
+                    >
+                      {num}
+                    </span>
+                    <span
                       style={{
                         fontFamily: 'var(--font-display)',
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: 700,
-                        letterSpacing: '0.25em',
+                        letterSpacing: '0.2em',
                         textTransform: 'uppercase',
-                        color: 'var(--accent-red)',
+                        color: i === 0 ? 'var(--accent-red)' : 'var(--text-primary)',
                       }}
                     >
                       {label}
-                    </div>
-                    <Icon size={18} strokeWidth={1.5} style={{ color: 'var(--text-secondary)', marginTop: 4 }} />
+                    </span>
                   </div>
                 </div>
+                {/* Connector line under icon for non-last items */}
+                <div style={{
+                  width: 24,
+                  height: 2,
+                  background: i === 0 ? 'var(--accent-red)' : 'var(--border)',
+                  marginBottom: 20,
+                }} />
                 <p
                   style={{
                     fontFamily: 'var(--font-body)',
@@ -541,45 +623,137 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ───────────────────────────────────────────── */}
-      <footer
-        style={{
-          borderTop: '1px solid var(--border)',
-          background: 'var(--bg-base)',
-        }}
-      >
+      <footer style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-base)' }}>
         <div
           style={{
             ...PAGE_STYLE,
-            paddingTop: 32,
-            paddingBottom: 32,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 16,
+            paddingTop: 48,
+            paddingBottom: 48,
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr auto',
+            gap: 48,
+            alignItems: 'start',
           }}
+          className="footer-grid"
         >
-          <span
-            style={{
+          {/* Brand */}
+          <div>
+            <div style={{
               fontFamily: 'var(--font-display)',
               fontSize: 13,
               fontWeight: 800,
               letterSpacing: '0.1em',
-              color: 'var(--text-muted)',
-            }}
-          >
-            PHIL·VERIFY
-          </span>
-          <span
-            style={{
+              color: 'var(--text-primary)',
+              marginBottom: 8,
+            }}>
+              PHIL<span style={{ color: 'var(--accent-red)' }}>VERIFY</span>
+            </div>
+            <div style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: 11,
+              fontSize: 10,
               color: 'var(--text-muted)',
               letterSpacing: '0.1em',
-            }}
-          >
-            ML2 Final Project &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; {new Date().getFullYear()}
-          </span>
+              lineHeight: 1.6,
+            }}>
+              ML2 Final Project<br />
+              MIT License · {new Date().getFullYear()}
+            </div>
+          </div>
+
+          {/* Nav links */}
+          <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+                marginBottom: 12,
+              }}>App</div>
+              {[
+                { label: 'Verify', to: '/verify', internal: true },
+                { label: 'History', to: '/history', internal: true },
+                { label: 'Trends', to: '/trends', internal: true },
+              ].map(({ label, to, internal }) => (
+                <div key={label} style={{ marginBottom: 8 }}>
+                  {internal
+                    ? <Link to={to} style={{
+                        fontFamily: 'var(--font-body)',
+                        fontSize: 13,
+                        color: 'var(--text-secondary)',
+                        textDecoration: 'none',
+                        transition: 'color 0.15s ease-out',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+                    >{label}</Link>
+                    : null
+                  }
+                </div>
+              ))}
+            </div>
+            <div>
+              <div style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+                marginBottom: 12,
+              }}>Resources</div>
+              {[
+                { label: 'API Docs', href: 'https://semiautomat1c-philverify-api.hf.space/docs' },
+                { label: 'GitHub', href: 'https://github.com/SemiAutomat1c/philverify' },
+              ].map(({ label, href }) => (
+                <div key={label} style={{ marginBottom: 8 }}>
+                  <a href={href} target="_blank" rel="noopener noreferrer" style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 13,
+                    color: 'var(--text-secondary)',
+                    textDecoration: 'none',
+                    transition: 'color 0.15s ease-out',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+                  >{label}</a>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Disclaimer */}
+          <div style={{ maxWidth: 220 }}>
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              color: 'var(--text-muted)',
+              lineHeight: 1.6,
+              letterSpacing: '0.03em',
+            }}>
+              For research and educational purposes only. Use responsibly when verifying information on social media.
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom rule */}
+        <div style={{ borderTop: '1px solid var(--border)' }}>
+          <div style={{
+            ...PAGE_STYLE,
+            paddingTop: 16,
+            paddingBottom: 16,
+          }}>
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              color: 'var(--text-muted)',
+              letterSpacing: '0.1em',
+            }}>
+              Built with FastAPI · React · Whisper · Tesseract · NewsAPI
+            </span>
+          </div>
         </div>
       </footer>
 

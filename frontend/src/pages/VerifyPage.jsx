@@ -1,4 +1,5 @@
 import { useState, useRef, useId, useCallback, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { api } from '../api'
 import { scoreColor, VERDICT_MAP, scoreInterpretation, mlConfidenceExplanation, evidenceExplanation } from '../utils/format.js'
 import { PAGE_STYLE } from '../App.jsx'
@@ -233,9 +234,16 @@ function saveState(state) {
 /* ── Main Page ──────────────────────────────────────────── */
 export default function VerifyPage() {
     const persisted = loadPersistedState()
+    const location = useLocation()
+    const prefill = location.state?.prefill ?? null
 
     const [tab, setTab] = useState(persisted?.tab ?? 'text')
-    const [input, setInput] = useState(persisted?.input ?? '')
+    const [input, setInput] = useState(prefill ?? persisted?.input ?? '')
+
+    // Clear navigation state so refresh doesn't re-prefill
+    useEffect(() => {
+        if (prefill) window.history.replaceState({}, '')
+    }, [prefill])
     const [file, setFile] = useState(null)
     const [fileObjectUrl, setFileObjectUrl] = useState(null)
     const [dragOver, setDragOver] = useState(false)
