@@ -283,6 +283,33 @@ a.nav-link-item:hover > div {
   }
 }
 
+/* ── Landing page — responsive overrides ──────────────────── */
+.landing-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 640px) {
+  .landing-stats {
+    grid-template-columns: 1fr !important;
+  }
+
+  .landing-stats > div {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .landing-stats > div:last-child {
+    border-bottom: none;
+  }
+
+  .landing-steps {
+    flex-direction: column;
+  }
+}
+
 /* ── Verdict breaking-news banner ──────────────────────── */
 .verdict-banner {
   font-family: var(--font-display);

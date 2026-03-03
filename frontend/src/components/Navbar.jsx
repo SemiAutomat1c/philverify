@@ -3,7 +3,7 @@ import { Radar, Clock, TrendingUp, ShieldCheck } from 'lucide-react'
 import { PAGE_STYLE } from '../App.jsx'
 
 const NAV_LINKS = [
-    { to: '/', icon: ShieldCheck, label: 'Verify' },
+    { to: '/verify', icon: ShieldCheck, label: 'Verify' },
     { to: '/history', icon: Clock, label: 'History' },
     { to: '/trends', icon: TrendingUp, label: 'Trends' },
 ]

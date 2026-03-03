@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar.jsx'
+import LandingPage from './pages/LandingPage.jsx'
 import VerifyPage from './pages/VerifyPage.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
 import TrendsPage from './pages/TrendsPage.jsx'
@@ -42,7 +43,8 @@ export default function App() {
         <Navbar />
         <div id="main-content">
           <Routes>
-            <Route path="/" element={<VerifyPage />} />
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/verify" element={<VerifyPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/trends" element={<TrendsPage />} />
           </Routes>
