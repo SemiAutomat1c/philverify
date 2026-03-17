@@ -1,11 +1,10 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { subscribeToHistory } from '../firebase.js'
-import { timeAgo, VERDICT_MAP, scoreColor } from '../utils/format.js'
+import { timeAgo, scoreColor } from '../utils/format.js'
 import { PAGE_STYLE } from '../App.jsx'
 import { api } from '../api'
 import VerdictBadge from '../components/VerdictBadge.jsx'
 import SkeletonCard from '../components/SkeletonCard.jsx'
-import { Clock, RefreshCw, WifiOff, ChevronUp, ChevronDown, ChevronsUpDown, X, Loader2, FileText, Globe, ImageIcon, Video } from 'lucide-react'
+import { Clock, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, X, Loader2, FileText, Globe, ImageIcon, Video } from 'lucide-react'
 
 
 /* ── Sort icon helper ─────────────────────────────────── */
@@ -311,7 +310,6 @@ function DetailModal({ id, onClose }) {
 export default function HistoryPage() {
     const [entries, setEntries] = useState([])
     const [loading, setLoading] = useState(true)
-    const [source, setSource] = useState('firestore')
     const [sort, setSort] = useState('timestamp')
     const [dir, setDir] = useState('desc')
     const [filter, setFilter] = useState('all') // 'all' | 'Credible' | 'Unverified' | 'Likely Fake'
@@ -328,38 +326,9 @@ export default function HistoryPage() {
     }, [])
 
     useEffect(() => {
-        let resolved = false
-        let restInterval = null
-        let unsubRef = null // declared before subscribeToHistory so goRest() can reach it
-
-        function goRest() {
-            if (resolved) return
-            resolved = true
-            // Immediately kill the Firestore listener so the SDK stops retrying
-            // (prevents the ERR_BLOCKED_BY_CLIENT console flood from auto-retries)
-            unsubRef?.()
-            setSource('rest')
-            fetchRest()
-            restInterval = setInterval(fetchRest, 30_000)
-        }
-
-        // Fallback to REST after 1.5 s if Firestore hasn't connected
-        const fallbackTimer = setTimeout(goRest, 1500)
-
-        unsubRef = subscribeToHistory(
-            (docs) => {
-                if (!resolved) { resolved = true; clearTimeout(fallbackTimer) }
-                setEntries(docs)
-                setLoading(false)
-            },
-            // onError: Firestore blocked by ad-blocker → instant REST fallback
-            () => {
-                clearTimeout(fallbackTimer)
-                goRest()
-            }
-        )
-
-        return () => { unsubRef?.(); clearTimeout(fallbackTimer); if (restInterval) clearInterval(restInterval) }
+        fetchRest()
+        const interval = setInterval(fetchRest, 30_000)
+        return () => clearInterval(interval)
     }, [fetchRest])
 
     function handleSort(field) {
@@ -402,7 +371,7 @@ export default function HistoryPage() {
                 <div>
                     <h1 style={{ fontSize: 28, fontFamily: 'var(--font-display)' }}>History</h1>
                     <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                        {source === 'firestore' ? 'Real-time from Firestore' : 'Polling via REST API'}
+                        {'Polling via REST API'}
                         {' — '}<span className="tabular" style={{ fontFamily: 'var(--font-mono)' }}>{entries.length}</span> records
                     </p>
                 </div>
@@ -412,22 +381,11 @@ export default function HistoryPage() {
                         fontFamily: 'var(--font-display)',
                         letterSpacing: '0.1em',
                     }}
-                    aria-label={source === 'firestore' ? 'Live data' : 'Polling REST API'}>
+                    aria-label="Polling REST API">
                     <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'currentColor' }} />
-                    {source === 'rest' ? <><WifiOff size={11} aria-hidden="true" /> POLLING</> : <><RefreshCw size={11} aria-hidden="true" /> LIVE</>}
+                    <RefreshCw size={11} aria-hidden="true" /> POLLING
                 </div>
             </header>
-
-            {/* ── Firestore blocked notice ───────────────── */}
-            {source === 'rest' && !loading && (
-                <div className="card p-3 flex items-center gap-2"
-                    style={{ borderColor: 'rgba(217,119,6,0.3)', background: 'rgba(217,119,6,0.05)' }}>
-                    <WifiOff size={13} style={{ color: 'var(--accent-gold)', flexShrink: 0 }} aria-hidden="true" />
-                    <p className="text-xs" style={{ color: 'var(--accent-gold)', fontFamily: 'var(--font-body)' }}>
-                        Firestore may be blocked by an ad blocker — using REST fallback. Whitelist <code>firestore.googleapis.com</code> to restore live updates.
-                    </p>
-                </div>
-            )}
 
             {/* ── Filter tabs ────────────────────────────── */}
             {!loading && entries.length > 0 && (
