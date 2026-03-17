@@ -39,3 +39,4 @@ ml/_smoke_test.py
 
 # Local history persistence (user data — do not commit)
 data/history.json
+ml/models/
