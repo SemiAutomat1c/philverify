@@ -8,7 +8,9 @@
     "storage",
     "activeTab",
     "scripting",
-    "sidePanel"
+    "sidePanel",
+    "tabs",
+    "webNavigation"
   ],
 
   "side_panel": {
@@ -18,8 +20,10 @@
   "host_permissions": [
     "https://www.facebook.com/*",
     "https://facebook.com/*",
+    "https://*.fbcdn.net/*",
     "https://x.com/*",
     "https://twitter.com/*",
+    "https://pbs.twimg.com/*",
     "https://philverify.web.app/*",
     "http://localhost:8000/*"
   ],

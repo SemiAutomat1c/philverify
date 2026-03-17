@@ -33,8 +33,11 @@ function safeUrl(url) {
   } catch { return '#' }
 }
 function msg(obj) {
-  return new Promise(resolve => {
-    chrome.runtime.sendMessage(obj, resolve)
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(obj, (resp) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message))
+      else resolve(resp)
+    })
   })
 }
 
@@ -57,39 +60,60 @@ function isUrl(s) {
 function renderResult(result, container) {
   const color = VERDICT_COLORS[result.verdict] ?? '#5c554e'
   const topSource = result.layer2?.sources?.[0]
+  const features = result.layer1?.triggered_features ?? []
+  const modelTier = result.layer1?.model_tier
+  const claimMethod = result.layer2?.claim_method
+  const hasFooter = modelTier || claimMethod
 
   container.innerHTML = `
-    <div class="result" role="status" aria-live="polite">
-      <div class="result-verdict" style="color:${color}">${safeText(result.verdict)}</div>
-      <div class="result-score">${Math.round(result.final_score)}% credibility${result._fromCache ? ' (cached)' : ''}</div>
-      <div class="result-row">
-        <span class="result-label">Language</span>
-        <span class="result-val">${safeText(result.language ?? '—')}</span>
+    <div class="result" role="status" aria-live="polite" style="border-left:3px solid ${color}">
+      <div class="result-body">
+        <div class="result-top">
+          <div class="result-verdict" style="color:${color}">${safeText(result.verdict)}</div>
+          <div class="result-score">${Math.round(result.final_score)}%${result._fromCache ? ' · cached' : ''}</div>
+        </div>
+        <div class="result-hairline" style="background:${color}"></div>
+        <div class="result-row">
+          <span class="result-label">Language</span>
+          <span class="result-val">${safeText(result.language ?? '—')}</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">Confidence</span>
+          <span class="result-val" style="color:${color}">${result.confidence?.toFixed(1)}%</span>
+        </div>
+        ${features.length ? `
+        <div class="result-row">
+          <span class="result-label">Signals</span>
+          <span class="result-chips">${features.slice(0, 3).map(f => `<span class="result-chip" style="border-color:${color}55;color:${color}">${safeText(f)}</span>`).join('')}</span>
+        </div>` : ''}
+        ${topSource ? `
+        <div class="result-source">
+          <div class="result-label" style="margin-bottom:4px;">Top Source</div>
+          <a href="${safeUrl(topSource.url)}" target="_blank" rel="noreferrer">${safeText(topSource.title?.slice(0, 55) ?? topSource.source_name ?? 'View')} ↗</a>
+        </div>` : ''}
+        <a class="open-full" href="https://philverify.web.app" target="_blank" rel="noreferrer">
+          Open Full Dashboard ↗
+        </a>
       </div>
-      <div class="result-row">
-        <span class="result-label">Confidence</span>
-        <span class="result-val" style="color:${color}">${result.confidence?.toFixed(1)}%</span>
-      </div>
-      ${result.layer1?.triggered_features?.length ? `
-      <div class="result-row">
-        <span class="result-label">Signals</span>
-        <span class="result-val">${result.layer1.triggered_features.slice(0, 3).map(safeText).join(', ')}</span>
+      ${hasFooter ? `
+      <div class="result-meta-footer">
+        ${modelTier ? `<span class="result-meta-label">MODEL</span><span class="result-meta-val">${safeText(modelTier)}</span>` : ''}
+        ${modelTier && claimMethod ? '<span class="result-meta-sep">·</span>' : ''}
+        ${claimMethod ? `<span class="result-meta-label">VIA</span><span class="result-meta-val">${safeText(claimMethod)}</span>` : ''}
       </div>` : ''}
-      ${topSource ? `
-      <div class="result-source">
-        <div class="result-label" style="margin-bottom:4px;">Top Source</div>
-        <a href="${safeUrl(topSource.url)}" target="_blank" rel="noreferrer">${safeText(topSource.title?.slice(0, 55) ?? topSource.source_name ?? 'View')} ↗</a>
-      </div>` : ''}
-      <a class="open-full" href="https://philverify.web.app" target="_blank" rel="noreferrer">
-        Open Full Dashboard ↗
-      </a>
     </div>
   `
 }
 
 function renderHistory(entries, container) {
   if (!entries.length) {
-    container.innerHTML = '<div class="state-empty">No verifications yet.</div>'
+    container.innerHTML = `
+      <div class="state-empty">
+        <svg class="state-empty-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        No verifications yet.
+      </div>`
     return
   }
   container.innerHTML = `
@@ -97,10 +121,11 @@ function renderHistory(entries, container) {
       ${entries.map(e => {
         const color = VERDICT_COLORS[e.verdict] ?? '#5c554e'
         return `
-          <li class="history-item" role="listitem">
+          <li class="history-item" role="listitem" style="border-left:2px solid ${color}">
             <div class="history-item-top">
               <span class="history-verdict" style="background:${color}22;color:${color};border:1px solid ${color}4d;">${safeText(e.verdict)}</span>
               <span class="history-score">${Math.round(e.final_score)}%</span>
+              ${e.model_tier ? `<span class="history-model">${safeText(e.model_tier)}</span>` : ''}
             </div>
             <div class="history-preview">${safeText(e.text_preview || '—')}</div>
             <div class="history-time">${timeAgo(e.timestamp)}</div>
@@ -221,19 +246,19 @@ async function checkApiStatus() {
   const dot   = document.getElementById('api-status-dot')
   const label = document.getElementById('api-status-label')
   try {
-    const { apiBase } = await msg({ type: 'GET_SETTINGS' })
-    const res = await fetch(`${apiBase ?? 'http://localhost:8000'}/health`, { signal: AbortSignal.timeout(3000) })
-    if (res.ok) {
-      dot.style.background   = 'var(--credible)'
-      label.style.color      = 'var(--credible)'
-      label.textContent      = 'ONLINE'
+    // Route through the service worker so the fetch uses the correct host_permissions
+    const resp = await msg({ type: 'CHECK_HEALTH' })
+    if (resp?.ok) {
+      dot.style.background = 'var(--credible)'
+      label.style.color    = 'var(--credible)'
+      label.textContent    = 'ONLINE'
     } else {
-      throw new Error(`${res.status}`)
+      throw new Error(resp?.error ?? `HTTP ${resp?.status}`)
     }
   } catch {
-    dot.style.background  = 'var(--fake)'
-    label.style.color     = 'var(--fake)'
-    label.textContent     = 'OFFLINE'
+    dot.style.background = 'var(--fake)'
+    label.style.color    = 'var(--fake)'
+    label.textContent    = 'OFFLINE'
   }
 }
 

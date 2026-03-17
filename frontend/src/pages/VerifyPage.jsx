@@ -894,6 +894,20 @@ export default function VerifyPage() {
                             verdict={result.layer1?.verdict}
                             score={result.layer1?.confidence}
                             delay={0}>
+                            {result.layer1?.model_tier && (
+                                <span style={{
+                                    display: 'inline-block', fontSize: '0.62rem', padding: '2px 6px',
+                                    borderRadius: 3, marginTop: 6, marginBottom: 2,
+                                    background: result.layer1.model_tier === 'ensemble' ? 'rgba(217,119,6,0.12)' :
+                                                result.layer1.model_tier === 'xlmr' ? 'rgba(6,182,212,0.12)' : 'rgba(255,255,255,0.06)',
+                                    color: result.layer1.model_tier === 'ensemble' ? 'var(--accent-gold)' :
+                                           result.layer1.model_tier === 'xlmr' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                                    fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em',
+                                    border: '1px solid currentColor', opacity: 0.85,
+                                }}>
+                                    {result.layer1.model_tier}
+                                </span>
+                            )}
                             <p className="text-xs mt-2" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
                                 {mlConfidenceExplanation(result.layer1?.confidence || 0, result.layer1?.verdict)}
                             </p>
@@ -923,6 +937,11 @@ export default function VerifyPage() {
                             <p className="text-xs mt-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Claim searched: </span>
                                 "{result.layer2?.claim_used || 'No claim extracted'}"
+                                {result.layer2?.claim_method && (
+                                    <span style={{ marginLeft: 6, fontSize: '0.62rem', fontFamily: 'var(--font-mono)', opacity: 0.55 }}>
+                                        [{result.layer2.claim_method}]
+                                    </span>
+                                )}
                             </p>
                         </LayerCard>
                     </div>
@@ -1002,7 +1021,8 @@ export default function VerifyPage() {
                                                             <span className="text-xs tabular" style={{ color: 'var(--text-muted)' }}>
                                                                 {src.source_name || src.source}
                                                             </span>
-                                                            <span className="text-xs tabular" style={{ color: stanceColor, fontFamily: 'var(--font-display)', letterSpacing: '0.06em' }}>
+                                                            <span className="text-xs tabular" title={src.stance_reason || src.stance}
+                                                                style={{ color: stanceColor, fontFamily: 'var(--font-display)', letterSpacing: '0.06em', cursor: src.stance_reason ? 'help' : 'default' }}>
                                                                 {src.stance}
                                                             </span>
                                                             <span className="text-xs tabular" style={{ color: 'var(--text-muted)' }}>

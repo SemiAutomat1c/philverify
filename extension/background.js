@@ -20,7 +20,7 @@ const MAX_HISTORY = 50
 
 // ── Default settings ──────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
-  apiBase: 'https://philverify.web.app/api',
+  apiBase: 'http://localhost:8000/api',
   autoScan: true,    // Automatically scan Facebook feed posts
 }
 
@@ -75,6 +75,7 @@ async function setCached(key, result, preview) {
     text_preview: preview.slice(0, 80),
     verdict: result.verdict,
     final_score: result.final_score,
+    model_tier: result.layer1?.model_tier ?? null,
   }
   const updated = [entry, ...history.filter(h => h.id !== key)].slice(0, MAX_HISTORY)
   await chrome.storage.local.set({ history: updated })
@@ -88,15 +89,17 @@ async function verifyText(text, imageUrl) {
   if (hit) return { ...hit, _fromCache: true }
 
   const { apiBase } = await getSettings()
-  // Build payload — include imageUrl for multimodal (text + image) analysis
   const payload = { text }
   if (imageUrl && isHttpUrl(imageUrl)) payload.image_url = imageUrl
+  
+  console.log('[PhilVerify BG] Calling API:', `${apiBase}/verify/text`, payload)
 
   const res = await fetch(`${apiBase}/verify/text`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
+  console.log('[PhilVerify BG] API Response Status:', res.status)
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.detail ?? `API error ${res.status}`)
@@ -112,11 +115,14 @@ async function verifyUrl(url) {
   if (hit) return { ...hit, _fromCache: true }
 
   const { apiBase } = await getSettings()
+  console.log('[PhilVerify BG] Calling API:', `${apiBase}/verify/url`, url)
+
   const res = await fetch(`${apiBase}/verify/url`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),
   })
+  console.log('[PhilVerify BG] API Response Status:', res.status)
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.detail ?? `API error ${res.status}`)
@@ -203,13 +209,35 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         sendResponse({ ok: false, error: 'Invalid API URL: only http/https allowed' })
         return false
       }
-      chrome.storage.local
-        .set({ settings: incoming })
+      // Merge with existing settings so a partial update doesn't clobber other fields
+      getSettings()
+        .then(current => chrome.storage.local.set({ settings: { ...current, ...incoming } }))
         .then(() => sendResponse({ ok: true }))
+      return true
+    }
+
+    case 'CHECK_HEALTH': {
+      getSettings()
+        .then(({ apiBase }) => fetch(`${apiBase}/health`, { signal: AbortSignal.timeout(3000) }))
+        .then(res => sendResponse({ ok: res.ok, status: res.status }))
+        .catch(e => sendResponse({ ok: false, error: e.message }))
       return true
     }
 
     default:
       break
+  }
+})
+
+// ── SPA navigation: re-scan Facebook posts after pushState navigation ─────────
+// Facebook is a single-page app — clicking Home/Profile/etc. does a pushState
+// navigation without reloading the page. The content script stays alive but
+// needs to re-scan for new post articles after the page content changes.
+chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+  if (details.url.includes('facebook.com')) {
+    chrome.tabs.sendMessage(details.tabId, { action: 'RE_SCAN_POSTS' }, () => {
+      // Suppress "no listener" errors when the content script isn't loaded yet
+      if (chrome.runtime.lastError) {}
+    })
   }
 })

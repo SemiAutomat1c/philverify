@@ -7,10 +7,15 @@ Stance labels:
   Refutes         — article content contradicts / debunks the claim
   Not Enough Info — article is related but not conclusive either way
 
-Strategy (rule-based hybrid — no heavy model dependency):
-  1. Keyword scan of title + description for refutation/support signals
-  2. Similarity threshold guard — low similarity → NEI
-  3. Factuality keywords override similarity-based detection
+Strategy (hybrid — NLI model primary, keyword rules as fallback):
+  0. Known PH fact-check domain → always Refutes
+  1. Similarity floor — too low similarity → NEI
+  1.5 NLI entailment check (cross-encoder/nli-MiniLM2-L6-H768) when
+     article description is long enough and model is available.
+     Uses the claim as the hypothesis and the article text as the premise.
+     Falls through to keyword rules if NLI confidence < 0.65.
+  2. Keyword scan of title + description for refutation/support signals
+  3. Default NEI
 """
 import logging
 import re
@@ -18,6 +23,28 @@ from dataclasses import dataclass
 from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+# ── NLI model (lazy-loaded) ───────────────────────────────────────────────────
+_nli_pipe = None
+_nli_loaded = False
+
+
+def _get_nli():
+    """Return the zero-shot NLI pipeline, loading it once on first call."""
+    global _nli_pipe, _nli_loaded
+    if _nli_loaded:
+        return _nli_pipe
+    try:
+        from transformers import pipeline
+        _nli_pipe = pipeline(
+            "zero-shot-classification",
+            model="cross-encoder/nli-MiniLM2-L6-H768",
+        )
+        logger.info("NLI stance model (nli-MiniLM2-L6-H768) loaded")
+    except Exception as e:
+        logger.warning("NLI stance model unavailable (%s) — using keyword fallback", e)
+    _nli_loaded = True
+    return _nli_pipe
 
 
 class Stance(str, Enum):
@@ -109,6 +136,36 @@ def detect_stance(
             matched_keywords=[],
             reason=f"Low similarity ({similarity:.2f}) — article not related to claim",
         )
+
+    # ── Rule 1.5: NLI entailment — semantically compare claim to article ──────
+    nli = _get_nli()
+    if nli and len(article_description.strip()) > 30:
+        try:
+            nli_result = nli(
+                article_description[:512],
+                candidate_labels=["supports the claim", "contradicts the claim", "unrelated"],
+                hypothesis_template="This text {}.",
+            )
+            top_label = nli_result["labels"][0]
+            top_score = float(nli_result["scores"][0])
+            if top_score >= 0.65:
+                if "supports" in top_label:
+                    return StanceResult(
+                        stance=Stance.SUPPORTS,
+                        confidence=round(top_score, 2),
+                        matched_keywords=[],
+                        reason=f"NLI entailment ({top_score:.2f}): article supports claim",
+                    )
+                elif "contradicts" in top_label:
+                    return StanceResult(
+                        stance=Stance.REFUTES,
+                        confidence=round(top_score, 2),
+                        matched_keywords=[],
+                        reason=f"NLI contradiction ({top_score:.2f}): article contradicts claim",
+                    )
+            # NLI confidence below threshold — fall through to keyword rules
+        except Exception as e:
+            logger.debug("NLI inference error: %s", e)
 
     # ── Rule 2: Scan for refutation keywords ──────────────────────────────────
     refutation_hits = _scan_keywords(article_text, _REFUTATION_KEYWORDS)

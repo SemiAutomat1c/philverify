@@ -10,6 +10,7 @@ Languages: English, Filipino/Tagalog, Taglish (code-switched)
 """
 
 from __future__ import annotations
+import random as _random
 from dataclasses import dataclass
 
 LABEL_NAMES = {0: "Credible", 1: "Unverified", 2: "Likely Fake"}
@@ -199,3 +200,40 @@ def class_weights(samples: list[Sample]) -> list[float]:
     for i in range(NUM_LABELS):
         weights.append(total / (NUM_LABELS * max(counts[i], 1)))
     return weights
+
+
+# ── Easy Data Augmentation (EDA) ──────────────────────────────────────────────
+
+def _random_deletion(words: list[str], p: float = 0.12) -> list[str]:
+    """Randomly delete each word with probability p."""
+    if len(words) == 1:
+        return words
+    kept = [w for w in words if _random.random() > p]
+    return kept if kept else [_random.choice(words)]
+
+
+def _random_swap(words: list[str], n: int = 1) -> list[str]:
+    """Randomly swap n pairs of adjacent words."""
+    out = words[:]
+    for _ in range(n):
+        i, j = _random.sample(range(len(out)), 2)
+        out[i], out[j] = out[j], out[i]
+    return out
+
+
+def augment_samples(samples: list[Sample], seed: int = 42) -> list[Sample]:
+    """
+    Return augmented copies of samples using random deletion and random swap.
+    The originals are NOT included — caller decides whether to combine them.
+    Produces up to 2× the number of input samples (one deletion + one swap
+    variant per sample; samples with fewer than 4 words are skipped).
+    """
+    _random.seed(seed)
+    augmented: list[Sample] = []
+    for s in samples:
+        words = s.text.split()
+        if len(words) < 4:
+            continue
+        augmented.append(Sample(" ".join(_random_deletion(words[:])), s.label))
+        augmented.append(Sample(" ".join(_random_swap(words[:])), s.label))
+    return augmented

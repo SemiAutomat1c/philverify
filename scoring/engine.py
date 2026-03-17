@@ -81,6 +81,7 @@ async def run_verification(
     from nlp.clickbait import ClickbaitDetector
     from nlp.claim_extractor import ClaimExtractor
     from evidence.news_fetcher import fetch_evidence, compute_similarity
+    from evidence.stance_detector import detect_stance as _detect_stance
 
     # ── Step 1: Preprocess ────────────────────────────────────────────────────
     preprocessor = _get_nlp("preprocessor", TextPreprocessor)
@@ -103,26 +104,41 @@ async def run_verification(
     claim_result = claim_extractor.extract(proc.cleaned)
 
     # ── Step 7: Layer 1 — ML Classifier ──────────────────────────────────────
-    # Try fine-tuned XLM-RoBERTa first; fall back to TF-IDF baseline if the
-    # checkpoint hasn't been generated yet (ml/train_xlmr.py not yet run).
-    model_tier = "xlmr"  # for observability in logs
+    # Priority: Ensemble (XLM-R + Tagalog-RoBERTa) → XLM-R alone → TF-IDF.
+    # Tagalog-RoBERTa requires its own fine-tuned checkpoint; if missing the
+    # engine silently falls back to XLM-R only without breaking anything.
+    model_tier = "tfidf"
+    classifier = None
     try:
         from ml.xlm_roberta_classifier import XLMRobertaClassifier, ModelNotFoundError
-        classifier = _get_nlp("xlmr_classifier", XLMRobertaClassifier)
+        from ml.tagalog_roberta_classifier import TagalogRobertaClassifier
+        from ml.ensemble_classifier import EnsembleClassifier
+
+        xlmr = _get_nlp("xlmr_classifier", XLMRobertaClassifier)
+        members = [xlmr]
+        model_tier = "xlmr"
+
+        try:
+            tl = _get_nlp("tagalog_classifier", TagalogRobertaClassifier)
+            members.append(tl)
+            model_tier = "ensemble"
+        except ModelNotFoundError:
+            logger.info("Tagalog-RoBERTa checkpoint not found — using XLM-R only")
+        except Exception as exc:
+            logger.warning("Tagalog-RoBERTa load failed (%s) — using XLM-R only", exc)
+
+        classifier = EnsembleClassifier(members)
+
     except ModelNotFoundError:
         logger.info("XLM-RoBERTa checkpoint not found — falling back to TF-IDF baseline")
+    except Exception as exc:
+        logger.warning("XLM-RoBERTa load failed (%s) — falling back to TF-IDF", exc)
+
+    if classifier is None:
         from ml.tfidf_classifier import TFIDFClassifier
         def _make_tfidf():
             c = TFIDFClassifier(); c.train(); return c
         classifier = _get_nlp("tfidf_classifier", _make_tfidf)
-        model_tier = "tfidf"
-    except Exception as exc:
-        logger.warning("XLM-RoBERTa load failed (%s) — falling back to TF-IDF", exc)
-        from ml.tfidf_classifier import TFIDFClassifier
-        def _make_tfidf():  # noqa: F811
-            c = TFIDFClassifier(); c.train(); return c
-        classifier = _get_nlp("tfidf_classifier", _make_tfidf)
-        model_tier = "tfidf"
 
     l1 = classifier.predict(proc.cleaned)
     logger.debug("Layer-1 (%s): %s %.1f%%", model_tier, l1.verdict, l1.confidence)
@@ -137,6 +153,7 @@ async def run_verification(
         verdict=Verdict(l1.verdict),
         confidence=l1.confidence,
         triggered_features=l1.triggered_features,
+        model_tier=model_tier,
     )
 
     # ── Step 8: Layer 2 — Evidence Retrieval ──────────────────────────────────
@@ -170,19 +187,21 @@ async def run_verification(
                 domain = (art.get("source", {}) or {}).get("name", "unknown").lower()
                 tier = get_domain_tier(domain)
 
-                # Simple stance heuristic — negative title keywords → Refutes
-                title_lower = (art.get("title") or "").lower()
-                stance = Stance.NOT_ENOUGH_INFO
-                if any(w in title_lower for w in ["false", "fake", "hoax", "wrong", "debunked", "fact check"]):
-                    stance = Stance.REFUTES
-                elif sim > 0.6:
-                    stance = Stance.SUPPORTS
+                stance_result = _detect_stance(
+                    claim=claim_result.claim,
+                    article_title=art.get("title", ""),
+                    article_description=art.get("description", "") or "",
+                    article_url=art.get("url", ""),
+                    similarity=sim,
+                )
+                stance = Stance(stance_result.stance.value)
 
                 evidence_sources.append(EvidenceSource(
                     title=art.get("title", ""),
                     url=art.get("url", ""),
                     similarity=sim,
                     stance=stance,
+                    stance_reason=stance_result.reason,
                     domain_tier=tier or DomainTier.SUSPICIOUS,
                     published_at=art.get("publishedAt"),
                     source_name=art.get("source", {}).get("name"),
@@ -208,6 +227,7 @@ async def run_verification(
         evidence_score=round(evidence_score, 1),
         sources=evidence_sources,
         claim_used=claim_result.claim,
+        claim_method=claim_result.method,
     )
 
     # ── Step 9: Final Score ───────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import LandingPage from './pages/LandingPage.jsx'
 import VerifyPage from './pages/VerifyPage.jsx'
 import HistoryPage from './pages/HistoryPage.jsx'
 import TrendsPage from './pages/TrendsPage.jsx'
+import BenchmarksPage from './pages/BenchmarksPage.jsx'
 
 /** Shared horizontal constraint — all pages + navbar use this */
 export const PAGE_MAX_W = 960
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/verify" element={<VerifyPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/trends" element={<TrendsPage />} />
+            <Route path="/benchmarks" element={<BenchmarksPage />} />
           </Routes>
         </div>
       </div>

@@ -46,8 +46,9 @@ class NERResult:
 
 class EntityExtractor:
     """
-    NER using spaCy (en_core_web_sm) + Philippine entity hint layer.
-    Falls back to regex-based date extraction if spaCy not installed.
+    NER using calamanCy (tl_calamancy_lg) for Tagalog-aware entity extraction.
+    Falls back to spaCy en_core_web_sm, then to regex-based hint extraction.
+    calamanCy uses the same spaCy doc.ents interface so extract() is unchanged.
     """
 
     def __init__(self):
@@ -58,12 +59,17 @@ class EntityExtractor:
         if self._loaded:
             return
         try:
-            import spacy
-            self._nlp = spacy.load("en_core_web_sm")
-            logger.info("spaCy en_core_web_sm loaded")
-        except Exception as e:
-            logger.warning("spaCy not available (%s) — using hint-based NER", e)
-            self._nlp = None
+            import calamancy
+            self._nlp = calamancy.load("tl_calamancy_lg")
+            logger.info("calamanCy tl_calamancy_lg loaded")
+        except Exception:
+            try:
+                import spacy
+                self._nlp = spacy.load("en_core_web_sm")
+                logger.info("spaCy en_core_web_sm loaded (calamancy unavailable)")
+            except Exception as e:
+                logger.warning("spaCy not available (%s) — using hint-based NER", e)
+                self._nlp = None
         self._loaded = True
 
     def _hint_based_extract(self, text: str) -> NERResult:

@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-PhilVerify — XLM-RoBERTa Fine-tuning Script (Phase 10)
+PhilVerify — Tagalog-RoBERTa Fine-tuning Script
 
-Fine-tunes xlm-roberta-base on the PhilVerify labeled dataset (ml/dataset.py).
-Saves the checkpoint to ml/models/xlmr_model/ for use by XLMRobertaClassifier.
+Fine-tunes jcblaise/roberta-tagalog-base on the PhilVerify labeled dataset.
+The model was pre-trained on TLUnified, a large Filipino corpus, and
+outperforms XLM-RoBERTa-base on Tagalog classification by ~4.47% accuracy.
+
+Saves the checkpoint to ml/models/tagalog_roberta_model/ for use by
+TagalogRobertaClassifier and the EnsembleClassifier.
 
 Usage:
     cd PhilVerify/
     source venv/bin/activate
-    python ml/train_xlmr.py [--epochs N] [--lr FLOAT] [--batch-size N] [--no-freeze]
+    python ml/train_tagalog_roberta.py [--epochs N] [--lr FLOAT] [--batch-size N]
 
-Typical runtime (CPU, MacBook M1):  ~8–12 minutes for 5 epochs on 100 samples
+Typical runtime (CPU, MacBook M1):  ~8–12 minutes for 5 epochs
 Typical runtime (GPU/MPS):          ~1–2 minutes
 """
 from __future__ import annotations
@@ -21,7 +25,6 @@ import sys
 import time
 from pathlib import Path
 
-# Ensure project root is on path when run directly
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 logging.basicConfig(
@@ -31,8 +34,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR  = Path(__file__).parent / "models" / "xlmr_model"
-BASE_MODEL  = "xlm-roberta-base"
+OUTPUT_DIR  = Path(__file__).parent / "models" / "tagalog_roberta_model"
+BASE_MODEL  = "jcblaise/roberta-tagalog-base"
 MAX_LENGTH  = 256
 
 
@@ -64,11 +67,6 @@ class PhilVerifyDataset:
 # ── Freeze helpers ────────────────────────────────────────────────────────────
 
 def freeze_lower_layers(model, keep_top_n: int = 2) -> int:
-    """
-    Freeze all encoder layers except the top `keep_top_n`.
-    The classification head is always kept trainable.
-    Returns the number of frozen parameters.
-    """
     frozen = 0
     total_layers = len(model.roberta.encoder.layer)
     unfreeze_from = total_layers - keep_top_n
@@ -79,7 +77,6 @@ def freeze_lower_layers(model, keep_top_n: int = 2) -> int:
                 p.requires_grad = False
                 frozen += p.numel()
 
-    # Also freeze embeddings
     for p in model.roberta.embeddings.parameters():
         p.requires_grad = False
         frozen += p.numel()
@@ -140,10 +137,8 @@ def train(
     from ml.combined_dataset import get_split, class_weights, LABEL_NAMES, NUM_LABELS
     from ml.dataset import augment_samples
 
-    # ── Reproducibility ───────────────────────────────────────────────────────
     torch.manual_seed(seed)
 
-    # ── Device ────────────────────────────────────────────────────────────────
     if torch.backends.mps.is_available():
         device = torch.device("mps")
     elif torch.cuda.is_available():
@@ -152,7 +147,6 @@ def train(
         device = torch.device("cpu")
     logger.info("Device: %s", device)
 
-    # ── Data ──────────────────────────────────────────────────────────────────
     train_samples, val_samples = get_split(train_ratio=0.8, seed=seed)
     aug = augment_samples(train_samples, seed=seed)
     train_samples = train_samples + aug
@@ -170,7 +164,6 @@ def train(
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False)
 
-    # ── Model ─────────────────────────────────────────────────────────────────
     logger.info("Loading model: %s …", BASE_MODEL)
     model = AutoModelForSequenceClassification.from_pretrained(
         BASE_MODEL,
@@ -189,25 +182,20 @@ def train(
         total_params, trainable_params, trainable_params / total_params * 100,
     )
 
-    # ── Class-weighted loss ───────────────────────────────────────────────────
     weights = torch.tensor(
         class_weights(train_samples), dtype=torch.float
     ).to(device)
     logger.info("Class weights: %s", [round(w, 3) for w in weights.tolist()])
-
-    # Loss function with class weights (used in training loop)
     loss_fn = torch.nn.CrossEntropyLoss(weight=weights)
 
-    # ── Optimiser ─────────────────────────────────────────────────────────────
     optimizer = torch.optim.AdamW(
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=lr,
         weight_decay=0.01,
     )
 
-    # Linear warm-up + decay
-    total_steps   = epochs * len(train_loader)
-    warmup_steps  = max(1, total_steps // 10)
+    total_steps  = epochs * len(train_loader)
+    warmup_steps = max(1, total_steps // 10)
 
     def lr_lambda(step: int) -> float:
         if step < warmup_steps:
@@ -217,10 +205,9 @@ def train(
 
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
-    # ── Training ──────────────────────────────────────────────────────────────
-    best_val_acc   = 0.0
-    best_epoch     = 0
-    global_step    = 0
+    best_val_acc = 0.0
+    best_epoch   = 0
+    global_step  = 0
 
     for epoch in range(1, epochs + 1):
         model.train()
@@ -258,7 +245,6 @@ def train(
         if val_metrics["accuracy"] >= best_val_acc:
             best_val_acc = val_metrics["accuracy"]
             best_epoch   = epoch
-            # Save best checkpoint so far
             _save(model, tokenizer)
 
     logger.info(
@@ -278,13 +264,13 @@ def _save(model, tokenizer) -> None:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Fine-tune XLM-RoBERTa for PhilVerify misinformation classification",
+        description="Fine-tune jcblaise/roberta-tagalog-base for PhilVerify",
     )
     p.add_argument("--epochs",     type=int,   default=5,    help="Training epochs (default: 5)")
     p.add_argument("--lr",         type=float, default=2e-5, help="Learning rate (default: 2e-5)")
     p.add_argument("--batch-size", type=int,   default=8,    help="Batch size (default: 8)")
     p.add_argument("--keep-top-n", type=int,   default=2,    help="Unfrozen encoder layers (default: 2)")
-    p.add_argument("--no-freeze",  action="store_true",      help="Train all layers (slower, needs more data)")
+    p.add_argument("--no-freeze",  action="store_true",      help="Train all layers")
     p.add_argument("--seed",       type=int,   default=42,   help="Random seed (default: 42)")
     return p.parse_args()
 

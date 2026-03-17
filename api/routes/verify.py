@@ -77,11 +77,26 @@ async def _fetch_og_text(url: str) -> str:
 )
 async def verify_text(body: TextVerifyRequest) -> VerificationResponse:
     start = time.perf_counter()
-    logger.info("verify/text called | chars=%d", len(body.text))
+    logger.info("verify/text called | chars=%d | has_image=%s", len(body.text), bool(body.image_url))
     try:
         result = await run_verification(body.text, input_type="text")
         result.processing_time_ms = round((time.perf_counter() - start) * 1000, 1)
         result.extracted_text = body.text
+
+        # If an image URL was provided, fetch it and run OCR — store result separately
+        if body.image_url:
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=10) as client:
+                    img_resp = await client.get(body.image_url)
+                if img_resp.status_code == 200:
+                    ocr = await extract_text_from_image(img_resp.content)
+                    if ocr:
+                        result.ocr_text = ocr.strip()
+                        logger.info("OCR from image_url: %d chars", len(result.ocr_text))
+            except Exception as ocr_exc:
+                logger.warning("OCR for image_url failed (non-fatal): %s", ocr_exc)
+
         return result
     except Exception as exc:
         logger.exception("verify/text error: %s", exc)

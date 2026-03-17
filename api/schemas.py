@@ -49,6 +49,7 @@ class DomainTier(int, Enum):
 
 class TextVerifyRequest(BaseModel):
     text: str = Field(..., min_length=10, max_length=10_000, description="Raw text to verify")
+    image_url: Optional[str] = Field(None, description="Optional image URL to run OCR on alongside the text")
 
 
 class URLVerifyRequest(BaseModel):
@@ -71,6 +72,7 @@ class Layer1Result(BaseModel):
         default_factory=list,
         description="Human-readable list of suspicious features detected",
     )
+    model_tier: Optional[str] = Field(None, description="Classifier used: ensemble | xlmr | tfidf")
 
 
 class EvidenceSource(BaseModel):
@@ -78,6 +80,7 @@ class EvidenceSource(BaseModel):
     url: str
     similarity: float = Field(..., ge=0.0, le=1.0, description="Cosine similarity to input claim")
     stance: Stance
+    stance_reason: Optional[str] = Field(None, description="NLI entailment or keyword reason for stance")
     domain_tier: DomainTier
     published_at: Optional[str] = None
     source_name: Optional[str] = None
@@ -88,6 +91,7 @@ class Layer2Result(BaseModel):
     evidence_score: float = Field(..., ge=0.0, le=100.0)
     sources: list[EvidenceSource] = []
     claim_used: Optional[str] = Field(None, description="Extracted claim sent to evidence search")
+    claim_method: Optional[str] = Field(None, description="How the claim was extracted: sentence_scoring | sentence_heuristic | passthrough")
 
 
 # ── Main Response ─────────────────────────────────────────────────────────────
@@ -106,6 +110,7 @@ class VerificationResponse(BaseModel):
     input_type: str = "text"
     processing_time_ms: Optional[float] = None
     extracted_text: Optional[str] = Field(None, description="Raw text extracted from the URL / image / video for transparency")
+    ocr_text: Optional[str] = Field(None, description="Text extracted from an image via OCR (when image_url was provided alongside text)")
 
 
 # ── History / Trends ──────────────────────────────────────────────────────────

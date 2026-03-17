@@ -136,6 +136,25 @@ class XLMRobertaClassifier:
 
     # ── Public API (same interface as TFIDFClassifier) ────────────────────────
 
+    def predict_probs(self, text: str):
+        """Return raw softmax probability tensor for ensemble averaging."""
+        self._ensure_loaded()
+        import torch
+
+        encoding = self._tokenizer(
+            text,
+            truncation=True,
+            max_length=MAX_LENGTH,
+            return_tensors="pt",
+        )
+        with torch.no_grad():
+            outputs = self._model(
+                input_ids=encoding["input_ids"],
+                attention_mask=encoding["attention_mask"],
+                output_attentions=True,
+            )
+        return torch.softmax(outputs.logits[0], dim=-1), outputs.attentions, encoding["input_ids"]
+
     def predict(self, text: str) -> Layer1Result:
         self._ensure_loaded()
         import torch
@@ -162,7 +181,8 @@ class XLMRobertaClassifier:
         confidence = round(float(probs[pred_label].item()) * 100, 1)
         verdict    = LABEL_NAMES[pred_label]
 
-        triggered  = self._salient_tokens(input_ids, outputs.attentions)
+        # SDPA attention doesn't return attentions; fallback to empty
+        triggered  = self._salient_tokens(input_ids, outputs.attentions) if outputs.attentions else []
 
         return Layer1Result(
             verdict=verdict,

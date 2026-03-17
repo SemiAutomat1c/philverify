@@ -57,6 +57,7 @@ class PreprocessResult:
     normalized: str
     tokens: list[str] = field(default_factory=list)
     filtered_tokens: list[str] = field(default_factory=list)
+    lemmatized_tokens: list[str] = field(default_factory=list)
     char_count: int = 0
     word_count: int = 0
 
@@ -66,17 +67,61 @@ class TextPreprocessor:
     Multi-step text cleaner for Tagalog / English / Taglish content.
 
     Pipeline:
-        1. strip_html       — remove HTML tags
-        2. strip_urls       — remove hyperlinks
-        3. strip_mentions   — remove @user
-        4. strip_hashtags   — remove #tag text (keep token)
-        5. strip_emojis     — remove Unicode emoji
-        6. lowercase        — normalize case
-        7. normalize_chars  — collapse repeated chars, excessive !??
-        8. strip_punct      — remove punctuation except apostrophe
-        9. tokenize         — split on whitespace
-       10. remove_stopwords — drop EN + TL stopwords
+        1. strip_html        — remove HTML tags
+        2. strip_urls        — remove hyperlinks
+        3. strip_mentions    — remove @user
+        4. strip_hashtags    — remove #tag text (keep token)
+        5. strip_emojis      — remove Unicode emoji
+        6. lowercase         — normalize case
+        7. normalize_chars   — collapse repeated chars, excessive !??
+        8. strip_punct       — remove punctuation except apostrophe
+        9. tokenize          — split on whitespace
+       10. remove_stopwords  — drop EN + TL stopwords
+       11. lemmatize         — WordNet lemmatization (opt-in, English-biased;
+                               Tagalog tokens are returned unchanged)
+
+    Args:
+        lemmatize: if True, step 11 is applied and lemmatized_tokens is populated.
+                   Off by default — transformer models handle subword tokenization
+                   themselves and do not benefit from lemmatization.
     """
+
+    def __init__(self, lemmatize: bool = False):
+        self.lemmatize = lemmatize
+
+    def _lemmatize_tokens(self, tokens: list[str]) -> list[str]:
+        """
+        POS-aware WordNet lemmatization. Downloads NLTK data on first call.
+        Falls back to identity on any error (e.g. missing corpus).
+        """
+        try:
+            import nltk
+            from nltk.corpus import wordnet
+            from nltk.stem import WordNetLemmatizer
+
+            for resource, path in [
+                ("wordnet", "corpora/wordnet"),
+                ("averaged_perceptron_tagger_eng", "taggers/averaged_perceptron_tagger_eng"),
+            ]:
+                try:
+                    nltk.data.find(path)
+                except LookupError:
+                    nltk.download(resource, quiet=True)
+
+            def _wn_pos(tag: str) -> str:
+                if tag.startswith("J"):
+                    return wordnet.ADJ
+                if tag.startswith("V"):
+                    return wordnet.VERB
+                if tag.startswith("R"):
+                    return wordnet.ADV
+                return wordnet.NOUN
+
+            lemmatizer = WordNetLemmatizer()
+            tagged = nltk.pos_tag(tokens)
+            return [lemmatizer.lemmatize(w, _wn_pos(t)) for w, t in tagged]
+        except Exception:
+            return tokens
 
     def clean(self, text: str) -> str:
         """Steps 1-6: structural cleaning."""
@@ -113,12 +158,14 @@ class TextPreprocessor:
         normalized = self.normalize(cleaned)
         tokens = self.tokenize(normalized)
         filtered = self.remove_stopwords(tokens)
+        lemmatized = self._lemmatize_tokens(filtered) if self.lemmatize else []
         return PreprocessResult(
             original=text,
             cleaned=cleaned,
             normalized=normalized,
             tokens=tokens,
             filtered_tokens=filtered,
+            lemmatized_tokens=lemmatized,
             char_count=len(normalized),
             word_count=len(tokens),
         )
