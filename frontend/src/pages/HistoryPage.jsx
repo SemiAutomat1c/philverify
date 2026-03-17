@@ -377,7 +377,7 @@ export default function HistoryPage() {
                 </div>
                 <div className="flex items-center gap-1.5 text-xs"
                     style={{
-                        color: source === 'rest' ? 'var(--accent-gold)' : 'var(--accent-green)',
+                        color: 'var(--accent-green)',
                         fontFamily: 'var(--font-display)',
                         letterSpacing: '0.1em',
                     }}
