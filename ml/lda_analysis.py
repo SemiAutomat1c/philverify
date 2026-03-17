@@ -30,6 +30,16 @@ logger = logging.getLogger(__name__)
 
 _LABELS = {0: "Credible", 1: "Unverified", 2: "Likely Fake"}
 
+# Human-readable labels for each LDA topic (1-indexed).
+# Assigned by inspecting run_topic_analysis() output on the 100-sample PH dataset.
+TOPIC_LABELS: dict[int, str] = {
+    1: "Health & Conspiracy",
+    2: "Breaking News",
+    3: "Crime & Law",
+    4: "Politics & Government",
+    5: "Filipino Current Events",
+}
+
 
 # ── Standalone topic analysis ──────────────────────────────────────────────────
 
@@ -165,6 +175,25 @@ class LDAFeatureClassifier:
             confidence=confidence,
             triggered_features=triggered[:5],
         )
+
+    def get_topic_info(self, text: str) -> dict:
+        """
+        Infer the dominant LDA topic for a new text.
+        Returns label (human-assigned), top 6 defining words, and confidence
+        (the probability mass on the dominant topic, 0–100%).
+        """
+        processed = self._preprocess(text)
+        X_counts = self._count_vec.transform([processed])
+        X_lda = self._lda.transform(X_counts)          # (1, n_topics)
+        topic_idx = int(X_lda[0].argmax())
+        confidence = round(float(X_lda[0][topic_idx]) * 100, 1)
+
+        vocab = self._count_vec.get_feature_names_out()
+        topic_vec = self._lda.components_[topic_idx]
+        top_words = [vocab[i] for i in topic_vec.argsort()[-6:][::-1]]
+
+        label = TOPIC_LABELS.get(topic_idx + 1, f"Topic {topic_idx + 1}")
+        return {"label": label, "top_words": top_words, "confidence": confidence}
 
 
 # ── Direct run ─────────────────────────────────────────────────────────────────

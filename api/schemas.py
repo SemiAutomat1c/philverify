@@ -103,6 +103,14 @@ class ClassifierComparisonEntry(BaseModel):
     top_features: list[str] = []        # up to 3 top features / lda_topic_N label
 
 
+# ── LDA Topic Result ──────────────────────────────────────────────────────────
+
+class LDATopicResult(BaseModel):
+    label: str                                          # Human-assigned topic name
+    top_words: list[str]                                # Top 6 words defining this topic
+    confidence: float = Field(..., ge=0.0, le=100.0)   # Dominant topic probability (%)
+
+
 # ── Main Response ─────────────────────────────────────────────────────────────
 
 class VerificationResponse(BaseModel):
@@ -123,6 +131,10 @@ class VerificationResponse(BaseModel):
     classifier_comparison: list[ClassifierComparisonEntry] = Field(
         default_factory=list,
         description="Per-classifier results from all classical ML models (BoW, TF-IDF, NB, LDA)",
+    )
+    lda_topic: Optional[LDATopicResult] = Field(
+        None,
+        description="Dominant LDA topic inferred for this text",
     )
 
 

@@ -14,7 +14,7 @@ from config import get_settings
 from api.schemas import (
     VerificationResponse, Verdict, Language, DomainTier,
     Layer1Result, Layer2Result, EntitiesResult, EvidenceSource, Stance,
-    ClassifierComparisonEntry,
+    ClassifierComparisonEntry, LDATopicResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,8 +36,8 @@ def _get_nlp(key: str, factory):
 # Runs all four classical ML classifiers on every request for the demo panel.
 # Each classifier trains once on first call and is cached via _get_nlp().
 
-async def _run_comparison(text: str) -> list[ClassifierComparisonEntry]:
-    """Run BoW, TF-IDF, Naive Bayes, and LDA classifiers and return comparison entries."""
+async def _run_comparison(text: str) -> tuple[list[ClassifierComparisonEntry], LDATopicResult | None]:
+    """Run BoW, TF-IDF, Naive Bayes, and LDA classifiers. Also infer LDA topic."""
     _COMPARISON_CLASSIFIERS = [
         ("BoW",         "cmp_bow",   lambda: __import__("ml.bow_classifier", fromlist=["BoWClassifier"]).BoWClassifier()),
         ("TF-IDF",      "cmp_tfidf", lambda: __import__("ml.tfidf_classifier", fromlist=["TFIDFClassifier"]).TFIDFClassifier()),
@@ -47,6 +47,7 @@ async def _run_comparison(text: str) -> list[ClassifierComparisonEntry]:
 
     def _predict_all():
         results = []
+        lda_topic_result = None
         for name, key, factory in _COMPARISON_CLASSIFIERS:
             try:
                 clf = _get_nlp(key, factory)
@@ -57,9 +58,12 @@ async def _run_comparison(text: str) -> list[ClassifierComparisonEntry]:
                     confidence=r.confidence,
                     top_features=r.triggered_features[:3],
                 ))
+                if name == "LDA" and hasattr(clf, "get_topic_info"):
+                    info = clf.get_topic_info(text)
+                    lda_topic_result = LDATopicResult(**info)
             except Exception as exc:
                 logger.warning("Comparison classifier %s failed: %s", name, exc)
-        return results
+        return results, lda_topic_result
 
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, _predict_all)
@@ -315,7 +319,7 @@ async def run_verification(
     verdict = _map_verdict(final_score)
 
     # ── Step 10: Assemble response ────────────────────────────────────────────
-    comparison = await comparison_task
+    comparison, lda_topic = await comparison_task
 
     result = VerificationResponse(
         verdict=verdict,
@@ -335,6 +339,7 @@ async def run_verification(
         domain_credibility=get_domain_tier(source_domain) if source_domain else None,
         input_type=input_type,
         classifier_comparison=comparison,
+        lda_topic=lda_topic,
     )
 
     # ── Record to Firestore (falls back to in-memory if Firebase not configured) ─

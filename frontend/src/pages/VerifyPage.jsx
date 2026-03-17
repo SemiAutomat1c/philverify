@@ -927,6 +927,32 @@ export default function VerifyPage() {
                                                             clf.verdict === 'Likely Fake' ? '#f87171' : 'var(--accent-gold)',
                                             }} />
                                         </div>
+                                        {clf.name === 'LDA' && result.lda_topic && (
+                                            <div style={{ marginBottom: 8 }}>
+                                                <div style={{
+                                                    fontSize: '0.72rem', fontWeight: 600,
+                                                    color: 'var(--accent-cyan)', marginBottom: 4,
+                                                }}>
+                                                    {result.lda_topic.label}
+                                                </div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 4 }}>
+                                                    {result.lda_topic.top_words.map((w, i) => (
+                                                        <span key={i} style={{
+                                                            fontSize: '0.6rem', padding: '1px 5px', borderRadius: 2,
+                                                            background: 'rgba(6,182,212,0.08)',
+                                                            color: 'var(--accent-cyan)',
+                                                            border: '1px solid rgba(6,182,212,0.2)',
+                                                            fontFamily: 'var(--font-mono)',
+                                                        }}>
+                                                            {w}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                                                    {result.lda_topic.confidence.toFixed(1)}% topic match
+                                                </div>
+                                            </div>
+                                        )}
                                         {clf.top_features?.length > 0 && (
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                                                 {clf.top_features.map((f, i) => (
