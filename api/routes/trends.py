@@ -14,18 +14,9 @@ router = APIRouter(prefix="/trends", tags=["Trends"])
 def _load_all_history() -> list[dict]:
     """
     Return all history records from the best available source:
-      1. Firestore  2. Local JSON file  3. In-memory list (fallback)
+      1. Local JSON file  2. In-memory list (fallback)
     """
-    # Tier 1: Firestore
-    try:
-        from firebase_client import get_all_verifications_sync
-        records = get_all_verifications_sync()
-        if records:
-            return records
-    except Exception:
-        pass
-
-    # Tier 2: Local JSON file (persists across restarts)
+    # Tier 1: Local JSON file (persists across restarts)
     try:
         from api.routes.history import _load_history_file
         records = _load_history_file()

@@ -323,18 +323,9 @@ async def run_verification(
         "language": language.value,
     }
     try:
-        from firebase_client import save_verification
-        saved = await save_verification(history_entry)
-        if not saved:
-            # Firestore unavailable — fall back to in-memory store
-            from api.routes.history import record_verification
-            record_verification(history_entry)
+        from api.routes.history import record_verification
+        record_verification(history_entry)
     except Exception as e:
         logger.warning("Failed to record history: %s", e)
-        try:
-            from api.routes.history import record_verification
-            record_verification(history_entry)
-        except Exception:
-            pass
 
     return result

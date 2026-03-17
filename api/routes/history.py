@@ -3,9 +3,8 @@ PhilVerify — History Route
 GET /history — Returns past verification logs with pagination.
 
 Persistence tier order (best to worst):
-  1. Firestore — requires Cloud Firestore API to be enabled in GCP console
-  2. Local JSON file — data/history.json, survives server restarts, no setup needed
-  3. In-memory list — last resort, resets on every restart
+  1. Local JSON file — data/history.json, survives server restarts
+  2. In-memory list — last resort, resets on every restart
 """
 import json
 import logging
@@ -70,18 +69,7 @@ def record_verification(entry: dict) -> None:
 async def get_history_entry(entry_id: str) -> dict:
     logger.info("GET /history/%s", entry_id)
 
-    # Tier 1: Firestore
-    try:
-        from firebase_client import get_firestore
-        db = get_firestore()
-        if db:
-            doc = db.collection("verifications").document(entry_id).get()
-            if doc.exists:
-                return doc.to_dict()
-    except Exception as e:
-        logger.debug("Firestore detail unavailable (%s) — trying local file", e)
-
-    # Tier 2: Local JSON file
+    # Tier 1: Local JSON file
     try:
         records = _load_history_file()
         for r in records:
@@ -102,7 +90,7 @@ async def get_history_entry(entry_id: str) -> dict:
     "",
     response_model=HistoryResponse,
     summary="Get verification history",
-    description="Returns past verifications ordered by most recent. Reads from Firestore when configured, falls back to in-memory store.",
+    description="Returns past verifications ordered by most recent. Reads from local JSON file, falls back to in-memory store.",
 )
 async def get_history(
     page: int = Query(1, ge=1, description="Page number"),
@@ -111,33 +99,7 @@ async def get_history(
 ) -> HistoryResponse:
     logger.info("GET /history | page=%d limit=%d", page, limit)
 
-    # ── Tier 1: Firestore ─────────────────────────────────────────────────────
-    try:
-        from firebase_client import get_verifications, get_verification_count
-        vf = verdict_filter.value if verdict_filter else None
-        offset = (page - 1) * limit
-        entries_raw = await get_verifications(limit=limit, offset=offset, verdict_filter=vf)
-        total = await get_verification_count(verdict_filter=vf)
-        if entries_raw or total > 0:
-            return HistoryResponse(
-                total=total,
-                entries=[
-                    HistoryEntry(
-                        id=e["id"],
-                        timestamp=e["timestamp"],
-                        input_type=e.get("input_type", "text"),
-                        text_preview=e.get("text_preview", "")[:120],
-                        verdict=Verdict(e["verdict"]),
-                        confidence=e["confidence"],
-                        final_score=e["final_score"],
-                    )
-                    for e in entries_raw
-                ],
-            )
-    except Exception as e:
-        logger.debug("Firestore history unavailable (%s) — trying local file", e)
-
-    # ── Tier 2: Local JSON file ───────────────────────────────────────────────
+    # ── Tier 1: Local JSON file ───────────────────────────────────────────────
     # Load from file rather than in-memory list so data survives restarts.
     file_entries = list(reversed(_load_history_file()))
     if file_entries:
