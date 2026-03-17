@@ -94,6 +94,15 @@ class Layer2Result(BaseModel):
     claim_method: Optional[str] = Field(None, description="How the claim was extracted: sentence_scoring | sentence_heuristic | passthrough")
 
 
+# ── Classifier Comparison ─────────────────────────────────────────────────────
+
+class ClassifierComparisonEntry(BaseModel):
+    name: str                           # "BoW", "TF-IDF", "Naive Bayes", "LDA"
+    verdict: Verdict
+    confidence: float = Field(..., ge=0.0, le=100.0)
+    top_features: list[str] = []        # up to 3 top features / lda_topic_N label
+
+
 # ── Main Response ─────────────────────────────────────────────────────────────
 
 class VerificationResponse(BaseModel):
@@ -111,6 +120,10 @@ class VerificationResponse(BaseModel):
     processing_time_ms: Optional[float] = None
     extracted_text: Optional[str] = Field(None, description="Raw text extracted from the URL / image / video for transparency")
     ocr_text: Optional[str] = Field(None, description="Text extracted from an image via OCR (when image_url was provided alongside text)")
+    classifier_comparison: list[ClassifierComparisonEntry] = Field(
+        default_factory=list,
+        description="Per-classifier results from all classical ML models (BoW, TF-IDF, NB, LDA)",
+    )
 
 
 # ── History / Trends ──────────────────────────────────────────────────────────

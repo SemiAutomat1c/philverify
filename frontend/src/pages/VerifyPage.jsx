@@ -885,6 +885,69 @@ export default function VerifyPage() {
                         </p>
                     </div>
 
+                    {/* Model Comparison Panel */}
+                    {result.classifier_comparison?.length > 0 && (
+                        <div className="card p-5 fade-up-3">
+                            <SectionHeading>Model Comparison — Classical ML</SectionHeading>
+                            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
+                                All four classical classifiers trained on the same dataset — same input, different algorithms.
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                                {result.classifier_comparison.map((clf) => (
+                                    <div key={clf.name} style={{
+                                        background: 'rgba(255,255,255,0.03)',
+                                        border: '1px solid rgba(255,255,255,0.08)',
+                                        borderRadius: 6, padding: '10px 12px',
+                                    }}>
+                                        <div style={{
+                                            fontSize: '0.65rem', fontFamily: 'var(--font-mono)',
+                                            letterSpacing: '0.08em', color: 'var(--text-muted)',
+                                            textTransform: 'uppercase', marginBottom: 6,
+                                        }}>
+                                            {clf.name}
+                                        </div>
+                                        <div style={{
+                                            display: 'inline-block', fontSize: '0.7rem', fontWeight: 600,
+                                            padding: '2px 8px', borderRadius: 3, marginBottom: 6,
+                                            background: clf.verdict === 'Credible' ? 'rgba(34,197,94,0.15)' :
+                                                        clf.verdict === 'Likely Fake' ? 'rgba(239,68,68,0.15)' :
+                                                        'rgba(234,179,8,0.15)',
+                                            color: clf.verdict === 'Credible' ? 'var(--accent-green)' :
+                                                   clf.verdict === 'Likely Fake' ? '#f87171' : 'var(--accent-gold)',
+                                        }}>
+                                            {clf.verdict}
+                                        </div>
+                                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+                                            {clf.confidence.toFixed(1)}% confidence
+                                        </div>
+                                        <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, marginBottom: 8 }}>
+                                            <div style={{
+                                                height: '100%', borderRadius: 2, width: `${clf.confidence}%`,
+                                                background: clf.verdict === 'Credible' ? 'var(--accent-green)' :
+                                                            clf.verdict === 'Likely Fake' ? '#f87171' : 'var(--accent-gold)',
+                                            }} />
+                                        </div>
+                                        {clf.top_features?.length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                                                {clf.top_features.map((f, i) => (
+                                                    <span key={i} style={{
+                                                        fontSize: '0.6rem', padding: '1px 5px', borderRadius: 2,
+                                                        background: f.startsWith('lda_topic') ? 'rgba(6,182,212,0.12)' : 'rgba(220,38,38,0.1)',
+                                                        color: f.startsWith('lda_topic') ? 'var(--accent-cyan)' : '#f87171',
+                                                        border: `1px solid ${f.startsWith('lda_topic') ? 'rgba(6,182,212,0.3)' : 'rgba(220,38,38,0.25)'}`,
+                                                        fontFamily: 'var(--font-mono)',
+                                                    }}>
+                                                        {f}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Row 3: Layer cards (2 col, collapses to 1 on mobile) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 fade-up-4">
                         {/* Layer 1 */}

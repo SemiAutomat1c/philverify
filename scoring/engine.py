@@ -14,6 +14,7 @@ from config import get_settings
 from api.schemas import (
     VerificationResponse, Verdict, Language, DomainTier,
     Layer1Result, Layer2Result, EntitiesResult, EvidenceSource, Stance,
+    ClassifierComparisonEntry,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,39 @@ def _get_nlp(key: str, factory):
     if key not in _nlp_cache:
         _nlp_cache[key] = factory()
     return _nlp_cache[key]
+
+# ── Classical classifier comparison ──────────────────────────────────────────
+# Runs all four classical ML classifiers on every request for the demo panel.
+# Each classifier trains once on first call and is cached via _get_nlp().
+
+async def _run_comparison(text: str) -> list[ClassifierComparisonEntry]:
+    """Run BoW, TF-IDF, Naive Bayes, and LDA classifiers and return comparison entries."""
+    _COMPARISON_CLASSIFIERS = [
+        ("BoW",         "cmp_bow",   lambda: __import__("ml.bow_classifier", fromlist=["BoWClassifier"]).BoWClassifier()),
+        ("TF-IDF",      "cmp_tfidf", lambda: __import__("ml.tfidf_classifier", fromlist=["TFIDFClassifier"]).TFIDFClassifier()),
+        ("Naive Bayes", "cmp_nb",    lambda: __import__("ml.naive_bayes_classifier", fromlist=["NaiveBayesClassifier"]).NaiveBayesClassifier()),
+        ("LDA",         "cmp_lda",   lambda: __import__("ml.lda_analysis", fromlist=["LDAFeatureClassifier"]).LDAFeatureClassifier()),
+    ]
+
+    def _predict_all():
+        results = []
+        for name, key, factory in _COMPARISON_CLASSIFIERS:
+            try:
+                clf = _get_nlp(key, factory)
+                r = clf.predict(text)
+                results.append(ClassifierComparisonEntry(
+                    name=name,
+                    verdict=Verdict(r.verdict),
+                    confidence=r.confidence,
+                    top_features=r.triggered_features[:3],
+                ))
+            except Exception as exc:
+                logger.warning("Comparison classifier %s failed: %s", name, exc)
+        return results
+
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _predict_all)
+
 
 # ── Domain credibility lookup ─────────────────────────────────────────────────
 _DOMAIN_DB_PATH = Path(__file__).parent.parent / "domain_credibility.json"
@@ -173,6 +207,9 @@ async def run_verification(
     evidence_sources: list[EvidenceSource] = []
     l2_verdict = Verdict.UNVERIFIED
 
+    # Run classifier comparison concurrently with evidence fetch
+    comparison_task = asyncio.create_task(_run_comparison(proc.cleaned))
+
     if settings.news_api_key:
         try:
             query_entities = ner_result.persons + ner_result.organizations + ner_result.locations
@@ -278,6 +315,8 @@ async def run_verification(
     verdict = _map_verdict(final_score)
 
     # ── Step 10: Assemble response ────────────────────────────────────────────
+    comparison = await comparison_task
+
     result = VerificationResponse(
         verdict=verdict,
         confidence=round(max(l1.confidence, evidence_score / 100 * 100), 1),
@@ -295,6 +334,7 @@ async def run_verification(
         language=language,
         domain_credibility=get_domain_tier(source_domain) if source_domain else None,
         input_type=input_type,
+        classifier_comparison=comparison,
     )
 
     # ── Record to Firestore (falls back to in-memory if Firebase not configured) ─
