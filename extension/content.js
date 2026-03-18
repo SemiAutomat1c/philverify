@@ -561,9 +561,27 @@
     let inserted = false
 
     if (PLATFORM === 'facebook') {
-      // Strategy: Look for the action row (Like / Comment / Share)
-      // Use the Like button as anchor — present on ALL post types (home feed + profile)
-      // postElement from walk-up may be a sub-section, so also search the nearest article ancestor.
+      // Strategy 1 (primary): Insert BEFORE the message text block — places button at top of post.
+      // [data-ad-comet-preview="message"] is stable and already used for text extraction.
+      if (!inserted) {
+        const searchRoot = post.closest('[role="article"]') ?? post
+        const msgBlock =
+          searchRoot.querySelector('[data-ad-comet-preview="message"]') ??
+          searchRoot.querySelector('[data-testid="post_message"]') ??
+          post.querySelector('[data-ad-comet-preview="message"]') ??
+          post.querySelector('[data-testid="post_message"]')
+        if (msgBlock?.parentElement) {
+          const wrapper = document.createElement('div')
+          wrapper.className = 'pv-verify-btn-wrapper'
+          wrapper.style.marginBottom = '8px'
+          wrapper.appendChild(btn)
+          msgBlock.parentElement.insertBefore(wrapper, msgBlock)
+          inserted = true
+          log('Verify button injected before message block (top of post)')
+        }
+      }
+
+      // Strategy 2 (fallback): Insert after the action row (Like / Comment / Share)
       if (!inserted) {
         const searchRoot = post.closest('[role="article"]') ?? post
         const likeBtn =
@@ -580,22 +598,7 @@
           wrapper.appendChild(btn)
           actionBar.parentElement.insertBefore(wrapper, actionBar.nextSibling)
           inserted = true
-          log('Verify button injected after action bar')
-        }
-      }
-
-      // Strategy 3: Insert after [data-ad-comet-preview] text block
-      if (!inserted) {
-        const msgBlock =
-          post.querySelector('[data-ad-comet-preview="message"]') ??
-          post.querySelector('[data-testid="post_message"]')
-        if (msgBlock?.parentElement) {
-          const wrapper = document.createElement('div')
-          wrapper.className = 'pv-verify-btn-wrapper'
-          wrapper.appendChild(btn)
-          msgBlock.parentElement.insertBefore(wrapper, msgBlock.nextSibling)
-          inserted = true
-          log('Verify button injected after message block')
+          log('Verify button injected after action bar (fallback)')
         }
       }
     }
