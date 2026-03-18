@@ -534,11 +534,11 @@
     btn.setAttribute('type', 'button')
     btn.setAttribute('aria-label', 'Verify this post with PhilVerify')
 
-    // Button content using createElement (no innerHTML for XSS safety)
     const icon = document.createElement('span')
     icon.className = 'pv-verify-btn-icon'
-    icon.textContent = '🛡️'
     icon.setAttribute('aria-hidden', 'true')
+    // Shield SVG — trust indicator, replaces emoji for a polished look
+    icon.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
 
     const label = document.createElement('span')
     label.className = 'pv-verify-btn-label'
@@ -646,14 +646,25 @@
     btn.classList.add('pv-verify-btn--loading')
     const origIcon = btn.querySelector('.pv-verify-btn-icon')
     const origLabel = btn.querySelector('.pv-verify-btn-label')
-    if (origIcon) origIcon.textContent = ''
-    if (origLabel) origLabel.textContent = 'Analyzing…'
 
-    // Add spinner
-    const spinner = document.createElement('span')
-    spinner.className = 'pv-spinner'
-    spinner.setAttribute('aria-hidden', 'true')
-    btn.insertBefore(spinner, btn.firstChild)
+    // Replace icon with scanning SVG
+    if (origIcon) origIcon.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+
+    // 3-dot bounce loader
+    const dots = document.createElement('span')
+    dots.className = 'pv-dots'
+    dots.setAttribute('aria-hidden', 'true')
+    dots.innerHTML = '<span class="pv-dot"></span><span class="pv-dot"></span><span class="pv-dot"></span>'
+    btn.insertBefore(dots, origLabel)
+
+    // Cycle through status messages while waiting for the API
+    const SCAN_STEPS = ['Scanning text…', 'Cross-referencing…', 'Analyzing evidence…', 'Almost done…']
+    let stepIdx = 0
+    if (origLabel) origLabel.textContent = SCAN_STEPS[0]
+    btn._pvStepTimer = setInterval(() => {
+      stepIdx = (stepIdx + 1) % SCAN_STEPS.length
+      if (origLabel) origLabel.textContent = SCAN_STEPS[stepIdx]
+    }, 1800)
 
     // Extract content
     const text = extractPostText(post)
@@ -748,6 +759,9 @@
       }
 
       log(`Verification result: verdict=${response.verdict}, score=${response.final_score}`)
+      if (btn._pvStepTimer) { clearInterval(btn._pvStepTimer); btn._pvStepTimer = null }
+      const dots = btn.querySelector('.pv-dots')
+      if (dots) dots.remove()
       const extractedText = usedType === 'URL' ? url : (usedType === 'TEXT' ? text : null)
       showVerificationReport(post, btn, response, inputSummary, extractedText, image)
     } catch (err) {
@@ -1060,12 +1074,15 @@
   }
 
   function showErrorReport(post, btn, errorMessage) {
+    // Clear cycling status timer
+    if (btn._pvStepTimer) { clearInterval(btn._pvStepTimer); btn._pvStepTimer = null }
+
     btn.classList.remove('pv-verify-btn--loading')
     btn.classList.add('pv-verify-btn--error')
     btn.disabled = false
 
-    const spinner = btn.querySelector('.pv-spinner')
-    if (spinner) spinner.remove()
+    const dots = btn.querySelector('.pv-dots')
+    if (dots) dots.remove()
 
     const icon = btn.querySelector('.pv-verify-btn-icon')
     const label = btn.querySelector('.pv-verify-btn-label')
@@ -1075,13 +1092,13 @@
       errorMessage.includes('Extension context invalidated')
 
     if (needsRefresh) {
-      if (icon) icon.textContent = '🔄'
+      if (icon) icon.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
       if (label) label.textContent = 'Extension updated — refresh page'
-      btn.disabled = true  // No point retrying; force refresh
+      btn.disabled = true
       return
     }
 
-    if (icon) icon.textContent = '⚠️'
+    if (icon) icon.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
     if (label) label.textContent = 'Verification failed — tap to retry'
 
     // Remove old click listeners by replacing element
