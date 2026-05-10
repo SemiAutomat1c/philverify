@@ -407,7 +407,7 @@ export default function VerifyPage() {
             {/* ── Input card ──────────────────────────────── */}
             <section ref={inputSectionRef} aria-label="Input panel" className="card p-6 space-y-4 fade-up-2">
                 {/* Tab bar */}
-                <div role="tablist" aria-label="Input type" className="flex gap-1.5 flex-wrap">
+                <div role="tablist" aria-label="Input type" className="flex gap-4 flex-wrap">
                     {TABS.map(({ id, icon: Icon, label }) => {
                         const active = tab === id
                         return (
@@ -417,7 +417,7 @@ export default function VerifyPage() {
                                 aria-controls={`panel-${id}`}
                                 id={`tab-${id}`}
                                 onClick={() => handleTabChange(id)}
-                                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors"
+                                className="flex items-center px-4 py-2 transition-all duration-200"
                                 style={{
                                     fontFamily: 'var(--font-display)',
                                     letterSpacing: '0.08em',
@@ -426,10 +426,12 @@ export default function VerifyPage() {
                                     border: 'none',
                                     cursor: 'pointer',
                                     borderRadius: 2,
-                                    minHeight: 36, /* touch target */
+                                    minHeight: 40, /* restored original height */
                                 }}>
-                                <Icon size={12} aria-hidden="true" />
-                                {label.toUpperCase()}
+                                <div className="flex items-center justify-center gap-2 mx-auto">
+                                    <Icon size={16} aria-hidden="true" />
+                                    {label.toUpperCase()}
+                                </div>
                             </button>
                         )
                     })}
@@ -445,7 +447,7 @@ export default function VerifyPage() {
                             </label>
                             {/* Per-tab example suggestions */}
                             {tab === 'text' && (
-                                <div className="flex flex-wrap gap-1.5">
+                                <div className="flex flex-wrap gap-4">
                                     {[
                                         'Marcos signs new law lowering rice prices',
                                         'Leni Robredo arrested for treason',
@@ -456,7 +458,7 @@ export default function VerifyPage() {
                                             key={example}
                                             type="button"
                                             onClick={() => setInput(example)}
-                                            className="text-xs px-2.5 py-1 rounded-full transition-colors"
+                                            className="text-xs px-5 py-2 rounded-full transition-colors flex items-center justify-center gap-2"
                                             style={{
                                                 background: 'var(--bg-elevated)',
                                                 border: '1px solid var(--border)',
@@ -473,7 +475,7 @@ export default function VerifyPage() {
                                 </div>
                             )}
                             {tab === 'url' && (
-                                <div className="flex flex-wrap gap-1.5">
+                                <div className="flex flex-wrap gap-4">
                                     {[
                                         'https://rappler.com/nation/',
                                         'https://mb.com.ph/news/',
@@ -483,7 +485,7 @@ export default function VerifyPage() {
                                             key={example}
                                             type="button"
                                             onClick={() => setInput(example)}
-                                            className="text-xs px-2.5 py-1 rounded-full transition-colors"
+                                            className="text-xs px-5 py-2 rounded-full transition-colors flex items-center justify-center gap-2"
                                             style={{
                                                 background: 'var(--bg-elevated)',
                                                 border: '1px solid var(--border)',
@@ -746,7 +748,7 @@ export default function VerifyPage() {
 
             {/* ── Results ──────────────────────────────────── */}
             {result && !loading && (
-                <section aria-label="Verification results" className="space-y-4">
+                <section aria-label="Verification results" className="space-y-6">
 
                     {/* Verify Again bar */}
                     <div className="flex items-center justify-between py-1">
@@ -775,12 +777,12 @@ export default function VerifyPage() {
                     </div>
 
                     {/* Row 1: Gauge + Verdict explanation + Meta */}
-                    <div className="grid gap-4 fade-up-1" style={{ gridTemplateColumns: 'min(180px, 40%) 1fr' }}>
-                        <div className="card p-5 flex flex-col items-center justify-center gap-3">
+                    <div className="grid gap-10 fade-up-1" style={{ gridTemplateColumns: 'min(180px, 40%) 1fr' }}>
+                        <div className="card p-6 flex flex-col items-center justify-center gap-4">
                             <ScoreGauge score={result.final_score} size={140} />
                             <VerdictBadge verdict={result.verdict} size="banner" />
                         </div>
-                        <div className="card p-5 fade-up-2">
+                        <div className="card p-6 fade-up-2">
                             {/* Plain-language verdict explanation */}
                             <div className="mb-4 p-3" style={{
                                 background: result.verdict === 'Credible' ? 'rgba(34,197,94,0.08)'
@@ -922,7 +924,7 @@ export default function VerifyPage() {
                     )}
 
                     {/* Row 3: Layer cards (2 col, collapses to 1 on mobile) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 fade-up-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 fade-up-4">
                         {/* Layer 1 */}
                         <LayerCard
                             title="Layer 1 — AI Analysis"

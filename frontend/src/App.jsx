@@ -7,7 +7,7 @@ import TrendsPage from './pages/TrendsPage.jsx'
 import BenchmarksPage from './pages/BenchmarksPage.jsx'
 
 /** Shared horizontal constraint — all pages + navbar use this */
-export const PAGE_MAX_W = 960
+export const PAGE_MAX_W = 1080
 export const PAGE_STYLE = {
   maxWidth: PAGE_MAX_W,
   width: '100%',

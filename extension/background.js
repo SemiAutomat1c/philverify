@@ -17,10 +17,11 @@
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000   // 24 hours
 const MAX_HISTORY = 50
+const DEFAULT_API_BASE = 'http://localhost:8000/api'
 
 // ── Default settings ──────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
-  apiBase: 'http://localhost:8000/api',
+  apiBase: DEFAULT_API_BASE,
   autoScan: true,    // Automatically scan Facebook feed posts
 }
 
@@ -33,6 +34,22 @@ function isHttpUrl(str) {
     return u.protocol === 'http:' || u.protocol === 'https:'
   } catch { return false }
 }
+
+function normalizeApiBase(str) {
+  if (!str || typeof str !== 'string') return DEFAULT_API_BASE
+  try {
+    const u = new URL(str.trim())
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return DEFAULT_API_BASE
+    u.hash = ''
+    u.search = ''
+    const trimmedPath = u.pathname.replace(/\/+$/, '')
+    u.pathname = trimmedPath || '/api'
+    return u.toString().replace(/\/$/, '')
+  } catch {
+    return DEFAULT_API_BASE
+  }
+}
+
 async function sha256prefix(text, len = 16) {
   const buf = await crypto.subtle.digest(
     'SHA-256',
@@ -46,7 +63,8 @@ async function sha256prefix(text, len = 16) {
 
 async function getSettings() {
   const stored = await chrome.storage.local.get('settings')
-  return { ...DEFAULT_SETTINGS, ...(stored.settings ?? {}) }
+  const settings = { ...DEFAULT_SETTINGS, ...(stored.settings ?? {}) }
+  return { ...settings, apiBase: normalizeApiBase(settings.apiBase) }
 }
 
 // ── Cache helpers ─────────────────────────────────────────────────────────────
@@ -84,13 +102,15 @@ async function setCached(key, result, preview) {
 // ── API calls ─────────────────────────────────────────────────────────────────
 
 async function verifyText(text, imageUrl) {
-  const key = 'txt_' + await sha256prefix(text)
+  const validImageUrl = imageUrl && isHttpUrl(imageUrl) ? imageUrl : ''
+  const cacheInput = validImageUrl ? `${text}\nimage:${validImageUrl}` : text
+  const key = 'txt_' + await sha256prefix(cacheInput)
   const hit = await getCached(key)
   if (hit) return { ...hit, _fromCache: true }
 
   const { apiBase } = await getSettings()
   const payload = { text }
-  if (imageUrl && isHttpUrl(imageUrl)) payload.image_url = imageUrl
+  if (validImageUrl) payload.image_url = validImageUrl
   
   console.log('[PhilVerify BG] Calling API:', `${apiBase}/verify/text`, payload)
 
@@ -209,9 +229,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         sendResponse({ ok: false, error: 'Invalid API URL: only http/https allowed' })
         return false
       }
+      const normalized = {
+        ...incoming,
+        ...(Object.hasOwn(incoming, 'apiBase')
+          ? { apiBase: normalizeApiBase(incoming.apiBase) }
+          : {}),
+      }
       // Merge with existing settings so a partial update doesn't clobber other fields
       getSettings()
-        .then(current => chrome.storage.local.set({ settings: { ...current, ...incoming } }))
+        .then(current => chrome.storage.local.set({ settings: { ...current, ...normalized } }))
         .then(() => sendResponse({ ok: true }))
       return true
     }

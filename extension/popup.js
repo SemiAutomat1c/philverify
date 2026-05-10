@@ -32,8 +32,17 @@ function safeUrl(url) {
     return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : '#'
   } catch { return '#' }
 }
+
+function hasExtensionRuntime() {
+  return Boolean(globalThis.chrome?.runtime?.sendMessage)
+}
+
 function msg(obj) {
   return new Promise((resolve, reject) => {
+    if (!hasExtensionRuntime()) {
+      reject(new Error('Open this page from the installed Chrome extension to use history and settings.'))
+      return
+    }
     chrome.runtime.sendMessage(obj, (resp) => {
       if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message))
       else resolve(resp)
@@ -160,16 +169,20 @@ const verifyResult = document.getElementById('verify-result')
 const currentUrlEl = document.getElementById('current-url')
 
 // Auto-populate input with current tab URL if it's a news article
-chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-  const url = tab?.url ?? ''
-  if (url && !url.startsWith('chrome')) {
-    currentUrlEl.textContent = url
-    currentUrlEl.title = url
-    verifyInput.value = url
-  } else {
-    currentUrlEl.textContent = 'No active page'
-  }
-})
+if (globalThis.chrome?.tabs?.query) {
+  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    const url = tab?.url ?? ''
+    if (url && !url.startsWith('chrome')) {
+      currentUrlEl.textContent = url
+      currentUrlEl.title = url
+      verifyInput.value = url
+    } else {
+      currentUrlEl.textContent = 'No active page'
+    }
+  })
+} else {
+  currentUrlEl.textContent = 'Preview mode — open the installed extension to read the current tab.'
+}
 
 btnVerify.addEventListener('click', async () => {
   const raw = verifyInput.value.trim()
@@ -183,22 +196,30 @@ btnVerify.addEventListener('click', async () => {
       <div class="spinner" aria-hidden="true"></div><br>Analyzing claim…
     </div>`
 
-  const type = isUrl(raw) ? 'VERIFY_URL' : 'VERIFY_TEXT'
-  const payload = type === 'VERIFY_URL' ? { type, url: raw } : { type, text: raw }
-  const resp = await msg(payload)
+  try {
+    const type = isUrl(raw) ? 'VERIFY_URL' : 'VERIFY_TEXT'
+    const payload = type === 'VERIFY_URL' ? { type, url: raw } : { type, text: raw }
+    const resp = await msg(payload)
 
-  btnVerify.disabled = false
-  btnVerify.setAttribute('aria-busy', 'false')
-  btnVerify.textContent = 'Verify Claim'
-
-  if (resp?.ok) {
-    renderResult(resp.result, verifyResult)
-  } else {
+    if (resp?.ok) {
+      renderResult(resp.result, verifyResult)
+    } else {
+      verifyResult.innerHTML = `
+        <div class="state-error" role="alert">
+          ${resp?.error ?? 'Could not reach PhilVerify backend.'}<br>
+          <span style="font-size:10px;color:var(--text-muted)">Is the backend running at your configured API URL?</span>
+        </div>`
+    }
+  } catch (err) {
     verifyResult.innerHTML = `
       <div class="state-error" role="alert">
-        ${resp?.error ?? 'Could not reach PhilVerify backend.'}<br>
-        <span style="font-size:10px;color:var(--text-muted)">Is the backend running at your configured API URL?</span>
+        ${safeText(err.message ?? 'Could not reach PhilVerify backend.')}<br>
+        <span style="font-size:10px;color:var(--text-muted)">The side panel must be opened from the installed Chrome extension.</span>
       </div>`
+  } finally {
+    btnVerify.disabled = false
+    btnVerify.setAttribute('aria-busy', 'false')
+    btnVerify.textContent = 'Verify Claim'
   }
 })
 
@@ -215,28 +236,43 @@ verifyInput.addEventListener('keydown', e => {
 async function loadHistory() {
   const container = document.getElementById('history-container')
   container.innerHTML = '<div class="state-loading"><div class="spinner"></div><br>Loading…</div>'
-  const resp = await msg({ type: 'GET_HISTORY' })
-  renderHistory(resp?.history ?? [], container)
+  try {
+    const resp = await msg({ type: 'GET_HISTORY' })
+    renderHistory(resp?.history ?? [], container)
+  } catch (err) {
+    container.innerHTML = `
+      <div class="state-error" role="alert">
+        ${safeText(err.message ?? 'Could not load history.')}
+      </div>`
+  }
 }
 
 // ── Settings tab ──────────────────────────────────────────────────────────────
 
 async function loadSettings() {
-  const resp = await msg({ type: 'GET_SETTINGS' })
-  if (!resp) return
-  document.getElementById('api-base').value    = resp.apiBase  ?? 'http://localhost:8000'
-  document.getElementById('auto-scan').checked = resp.autoScan ?? true
+  try {
+    const resp = await msg({ type: 'GET_SETTINGS' })
+    if (!resp) return
+    document.getElementById('api-base').value    = resp.apiBase  ?? 'http://localhost:8000/api'
+    document.getElementById('auto-scan').checked = resp.autoScan ?? true
+  } catch {
+    document.getElementById('api-base').value = 'http://localhost:8000/api'
+    document.getElementById('auto-scan').checked = true
+  }
 }
 
 document.getElementById('btn-save').addEventListener('click', async () => {
   const settings = {
-    apiBase:  document.getElementById('api-base').value.trim() || 'http://localhost:8000',
+    apiBase:  document.getElementById('api-base').value.trim() || 'http://localhost:8000/api',
     autoScan: document.getElementById('auto-scan').checked,
   }
-  await msg({ type: 'SAVE_SETTINGS', settings })
-
   const flash = document.getElementById('saved-flash')
-  flash.textContent = 'Saved ✓'
+  try {
+    await msg({ type: 'SAVE_SETTINGS', settings })
+    flash.textContent = 'Saved ✓'
+  } catch (err) {
+    flash.textContent = err.message ?? 'Could not save'
+  }
   setTimeout(() => { flash.textContent = '' }, 2000)
 })
 

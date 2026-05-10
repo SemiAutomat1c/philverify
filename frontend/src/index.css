@@ -56,6 +56,7 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  zoom: 1.4;
   /* Halftone dot texture — atmospheric depth (frontend-design) */
   background-image: radial-gradient(circle, rgba(245, 240, 232, 0.025) 1px, transparent 1px);
   background-size: 24px 24px;

@@ -686,24 +686,29 @@
     try {
       let msgPayload
       let usedType = ''
+      const hasReadableText = text && text.length >= MIN_TEXT_LENGTH
 
-      // Start by attempting URL verification if present
-      if (url) {
-        msgPayload = { type: 'VERIFY_URL', url }
-        usedType = 'URL'
-        inputSummary = 'Shared link analyzed'
-      } else if (text && image) {
+      // Prioritize the user's caption/claim; shared links are supporting context.
+      if (hasReadableText && image) {
         msgPayload = { type: 'VERIFY_TEXT', text, imageUrl: image }
         usedType = 'TEXT'
         inputSummary = 'Caption + image analyzed'
-      } else if (text) {
+      } else if (hasReadableText) {
         msgPayload = { type: 'VERIFY_TEXT', text }
         usedType = 'TEXT'
         inputSummary = 'Caption text only'
-      } else {
+      } else if (url) {
+        msgPayload = { type: 'VERIFY_URL', url }
+        usedType = 'URL'
+        inputSummary = 'Shared link analyzed'
+      } else if (image) {
         msgPayload = { type: 'VERIFY_IMAGE_URL', imageUrl: image }
         usedType = 'IMAGE'
         inputSummary = 'Image only (OCR)'
+      } else {
+        msgPayload = { type: 'VERIFY_TEXT', text }
+        usedType = 'TEXT'
+        inputSummary = 'Caption text only'
       }
 
       console.log(`[PhilVerify] Attempting ${usedType} verification:`, msgPayload)

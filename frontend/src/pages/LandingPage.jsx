@@ -116,7 +116,7 @@ export default function LandingPage() {
           paddingBottom: 80,
           display: 'flex',
           alignItems: 'center',
-          gap: 64,
+          gap: 120,
         }}>
           <div style={{ flex: '1 1 auto', minWidth: 0 }}>
           {/* Eyebrow */}
@@ -266,10 +266,10 @@ export default function LandingPage() {
               </span>
             </div>
 
-            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
               {/* Row 1: gauge + verdict explanation */}
-              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 12 }}>
                 {/* Gauge */}
                 <div style={{
                   background: 'var(--bg-surface)',
@@ -328,7 +328,7 @@ export default function LandingPage() {
               </div>
 
               {/* Layer cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {[
                   { title: 'Layer 1 — AI Analysis', score: 74, verdict: '? Unverified', body: 'The AI model found this mostly consistent with credible content.' },
                   { title: 'Layer 2 — Evidence Check', score: 36, verdict: '? Unverified', body: 'Found 5 related articles — some contradict or debunk this claim.' },
@@ -369,7 +369,7 @@ export default function LandingPage() {
                 ].map(([title, source, pct]) => (
                   <div key={title} style={{ padding: '5px 6px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', marginBottom: 4 }}>
                     <p style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--text-primary)', marginBottom: 2, lineHeight: 1.4 }}>{title}</p>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 10 }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'var(--text-muted)' }}>{source}</span>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'var(--text-muted)' }}>Not Enough Info</span>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'var(--text-muted)' }}>{pct} match</span>
@@ -404,8 +404,8 @@ export default function LandingPage() {
               style={{
                 padding: '48px 0',
                 borderRight: i < STATS.length - 1 ? '1px solid var(--border)' : 'none',
-                paddingRight: i < STATS.length - 1 ? 40 : 0,
-                paddingLeft: i > 0 ? 40 : 0,
+                paddingRight: i < STATS.length - 1 ? 60 : 0,
+                paddingLeft: i > 0 ? 60 : 0,
               }}
             >
               <div
@@ -674,9 +674,9 @@ export default function LandingPage() {
               <div
                 key={num}
                 style={{
-                  padding: '0 40px 0 0',
+                  padding: '0 60px 0 0',
                   borderRight: i < STEPS.length - 1 ? '1px solid var(--border)' : 'none',
-                  marginRight: i < STEPS.length - 1 ? 40 : 0,
+                  marginRight: i < STEPS.length - 1 ? 60 : 0,
                 }}
               >
                 {/* Step number pill */}
