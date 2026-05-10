@@ -4,7 +4,7 @@ import { PAGE_STYLE } from '../App.jsx'
 import { api } from '../api'
 import VerdictBadge from '../components/VerdictBadge.jsx'
 import SkeletonCard from '../components/SkeletonCard.jsx'
-import { Clock, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, X, Loader2, FileText, Globe, ImageIcon, Video } from 'lucide-react'
+import { Clock, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, X, Loader2, FileText, Globe, ImageIcon } from 'lucide-react'
 
 
 /* ── Sort icon helper ─────────────────────────────────── */
@@ -41,7 +41,7 @@ function ColHeader({ children, field, sort, dir, onSort }) {
 
 /* ── Input-type icon ─────────────────────────────────── */
 function InputTypeIcon({ type, size = 12 }) {
-    const icons = { url: Globe, image: ImageIcon, video: Video, text: FileText }
+    const icons = { url: Globe, image: ImageIcon, text: FileText }
     const Icon = icons[type] ?? FileText
     return <Icon size={size} aria-hidden="true" />
 }

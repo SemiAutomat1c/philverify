@@ -43,7 +43,7 @@ export interface Layer2Result {
 // ── Verification response ──────────────────────────────────────────────────────
 
 export type Verdict = 'Credible' | 'Unverified' | 'Likely Fake'
-export type InputType = 'text' | 'url' | 'image' | 'video'
+export type InputType = 'text' | 'url' | 'image'
 
 export interface VerificationResponse {
   text_preview: string

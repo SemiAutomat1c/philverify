@@ -59,8 +59,8 @@ settings = get_settings()
 app = FastAPI(
     title="PhilVerify API",
     description=(
-        "Multimodal fake news detection for Philippine social media. "
-        "Supports text, URL, image (OCR), and video (Whisper ASR) inputs."
+        "NLP-assisted fake news and claim credibility detection for Philippine social media. "
+        "The public project scope supports text, URL, and image/screenshot OCR inputs."
     ),
     version="0.1.0",
     docs_url="/docs",

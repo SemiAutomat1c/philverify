@@ -10,6 +10,6 @@ pinned: false
 
 # PhilVerify API
 
-Multimodal fake news detection for Philippine social media.
+NLP-assisted fake news and claim credibility detection for Philippine social media.
 
-Supports text, URL, image (OCR), and video/audio (Whisper ASR) inputs.
+The public project scope supports text, URL, and image/screenshot OCR inputs.

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FileText, Link2, Image, Video, ArrowRight, Database, ShieldCheck, Github, BookOpen, Clock, TrendingUp, RefreshCw } from 'lucide-react'
+import { FileText, Link2, Image, ArrowRight, Database, ShieldCheck, Github, BookOpen, Clock, TrendingUp, RefreshCw } from 'lucide-react'
 import { PAGE_STYLE } from '../App.jsx'
 
 /* ─── data ──────────────────────────────────────────────────── */
@@ -20,11 +20,6 @@ const MODES = [
     label: 'Image',
     desc: 'Upload a screenshot — OCR extracts all visible text for full fact-checking.',
   },
-  {
-    icon: Video,
-    label: 'Video',
-    desc: 'Upload a clip — Whisper transcribes speech, frame OCR captures on-screen text.',
-  },
 ]
 
 const STEPS = [
@@ -32,7 +27,7 @@ const STEPS = [
     num: '01',
     label: 'INPUT',
     icon: FileText,
-    desc: 'Paste text, drop a URL, upload an image, or submit a video clip.',
+    desc: 'Paste text, drop a URL, or upload a screenshot with readable text.',
   },
   {
     num: '02',
@@ -136,7 +131,7 @@ export default function LandingPage() {
               marginBottom: 24,
             }}
           >
-            Philippine Fact-Check Engine &nbsp;·&nbsp; Multimodal AI
+            Philippine Fact-Check Engine &nbsp;·&nbsp; NLP + Evidence
           </p>
 
           {/* Main headline */}
@@ -170,7 +165,7 @@ export default function LandingPage() {
               marginBottom: 48,
             }}
           >
-            PhilVerify checks claims, URLs, images, and videos against live news evidence — built for Tagalog, English, and Taglish.
+            PhilVerify checks claims, URLs, and screenshots against live news evidence — built for Tagalog, English, and Taglish.
           </p>
 
           {/* CTA */}
@@ -949,7 +944,7 @@ export default function LandingPage() {
               color: 'var(--text-muted)',
               letterSpacing: '0.1em',
             }}>
-              Built with FastAPI · React · Whisper · Tesseract · NewsAPI
+              Built with FastAPI · React · Tesseract · NewsAPI
             </span>
           </div>
         </div>

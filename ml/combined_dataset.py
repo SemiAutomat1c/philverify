@@ -151,6 +151,36 @@ def _load_fallback() -> list[Sample]:
     return list(DATASET)
 
 
+def _merge_handcrafted_updates(samples: list[Sample]) -> list[Sample]:
+    """Append handcrafted examples missing from the processed parquet.
+
+    The checked-in parquet is the primary processed dataset, but the
+    hand-authored seed set is edited more frequently during project work.
+    Merging only missing exact texts lets new `Unverified` examples participate
+    in training/evaluation without rewriting the binary parquet on every edit.
+    """
+    try:
+        from ml.dataset import DATASET
+    except ModuleNotFoundError:
+        _project_root = str(_ML_DIR.parent)
+        if _project_root not in sys.path:
+            sys.path.insert(0, _project_root)
+        from ml.dataset import DATASET
+
+    seen = {s.text.strip().lower() for s in samples}
+    additions = [
+        Sample(text=s.text, label=s.label)
+        for s in DATASET
+        if s.text.strip().lower() not in seen
+    ]
+    if additions:
+        logger.info("Merged %d newer handcrafted sample(s) on top of combined parquet.", len(additions))
+        samples = samples + additions
+        random.seed(42)
+        random.shuffle(samples)
+    return samples
+
+
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 def get_dataset() -> list[Sample]:
@@ -169,7 +199,7 @@ def get_dataset() -> list[Sample]:
 
     if _PARQUET_PATH.is_file():
         _FALLBACK_MODE = False
-        _DATASET_CACHE = _load_from_parquet(_PARQUET_PATH)
+        _DATASET_CACHE = _merge_handcrafted_updates(_load_from_parquet(_PARQUET_PATH))
     else:
         _FALLBACK_MODE = True
         _DATASET_CACHE = _load_fallback()

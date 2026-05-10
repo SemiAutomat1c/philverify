@@ -54,7 +54,6 @@ export const api = {
     verifyText: (text) => post('/verify/text', { text }),
     verifyUrl: (url) => post('/verify/url', { url }),
     verifyImage: (file) => { const f = new FormData(); f.append('file', file); return postForm('/verify/image', f) },
-    verifyVideo: (file) => { const f = new FormData(); f.append('file', file); return postForm('/verify/video', f) },
     history: (params) => get('/history', params),
     historyDetail: (id) => get(`/history/${id}`),
     trends: () => get('/trends'),

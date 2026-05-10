@@ -7,14 +7,13 @@ import ScoreGauge from '../components/ScoreGauge.jsx'
 import VerdictBadge from '../components/VerdictBadge.jsx'
 import WordHighlighter from '../components/WordHighlighter.jsx'
 import SkeletonCard from '../components/SkeletonCard.jsx'
-import { FileText, Link2, Image, Video, Loader2, ChevronRight, AlertCircle, Upload, CheckCircle2, XCircle, HelpCircle, ExternalLink, Layers, Brain, RefreshCw, Info } from 'lucide-react'
+import { FileText, Link2, Image, Loader2, ChevronRight, AlertCircle, Upload, CheckCircle2, XCircle, HelpCircle, ExternalLink, Layers, Brain, RefreshCw, Info } from 'lucide-react'
 
 /* ── Tab definitions ────────────────────────────────────── */
 const TABS = [
     { id: 'text', icon: FileText, label: 'Text' },
     { id: 'url', icon: Link2, label: 'URL' },
     { id: 'image', icon: Image, label: 'Image' },
-    { id: 'video', icon: Video, label: 'Video' },
 ]
 
 /* ── Stance icon map ──────────────────────────────────────── */
@@ -236,8 +235,9 @@ export default function VerifyPage() {
     const persisted = loadPersistedState()
     const location = useLocation()
     const prefill = location.state?.prefill ?? null
+    const initialTab = TABS.some(t => t.id === persisted?.tab) ? persisted.tab : 'text'
 
-    const [tab, setTab] = useState(persisted?.tab ?? 'text')
+    const [tab, setTab] = useState(initialTab)
     const [input, setInput] = useState(prefill ?? persisted?.input ?? '')
 
     // Clear navigation state so refresh doesn't re-prefill
@@ -317,7 +317,7 @@ export default function VerifyPage() {
         if (!canSubmit) return
 
         /* Capture what the user submitted before any state resets */
-        const previewUrl = (tab === 'image' || tab === 'video') && file
+        const previewUrl = tab === 'image' && file
             ? URL.createObjectURL(file)
             : null
         setSubmittedInput({ type: tab, text: input, file: file, fileUrl: previewUrl, preview: tab === 'url' ? urlPreview : null })
@@ -327,8 +327,7 @@ export default function VerifyPage() {
             let res
             if (tab === 'text') res = await api.verifyText(input)
             else if (tab === 'url') res = await api.verifyUrl(input)
-            else if (tab === 'image') res = await api.verifyImage(file)
-            else res = await api.verifyVideo(file)
+            else res = await api.verifyImage(file)
             setResult(res)
         } catch (err) {
             setError(typeof err.message === 'string' ? err.message : String(err))
@@ -361,7 +360,7 @@ export default function VerifyPage() {
 
     /* Paste handler — reads the first file/image item from clipboard */
     const handlePaste = useCallback((e) => {
-        if (tab !== 'image' && tab !== 'video') return
+        if (tab !== 'image') return
         const items = e.clipboardData?.items
         if (!items) return
         for (const item of items) {
@@ -378,7 +377,7 @@ export default function VerifyPage() {
 
     /* Global paste listener — works even when the drop zone isn't focused */
     useEffect(() => {
-        if (tab !== 'image' && tab !== 'video') return
+        if (tab !== 'image') return
         document.addEventListener('paste', handlePaste)
         return () => document.removeEventListener('paste', handlePaste)
     }, [tab, handlePaste])
@@ -401,7 +400,7 @@ export default function VerifyPage() {
             <header className="ruled fade-up-1">
                 <h1 style={{ fontSize: 28, fontFamily: 'var(--font-display)' }}>Fact Check</h1>
                 <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                    Paste text, a URL, or upload media — we'll verify credibility instantly.
+                    Paste text, submit a URL, or upload a screenshot for OCR-based credibility analysis.
                 </p>
             </header>
 
@@ -537,12 +536,9 @@ export default function VerifyPage() {
                                 {tab === 'image' && <>
                                     Upload a screenshot of a news article, social media post, or image with text. <span style={{ color: 'var(--text-secondary)' }}>Supports JPG, PNG, WEBP.</span> Text is extracted via OCR.
                                 </>}
-                                {tab === 'video' && <>
-                                    Upload a video clip or audio recording. <span style={{ color: 'var(--text-secondary)' }}>Supports MP4, WEBM, MOV, MP3, WAV.</span> Speech is transcribed and on-screen text is extracted.
-                                </>}
                             </p>
                             <label htmlFor={`file-${tab}`} className="sr-only">
-                                Upload {tab === 'image' ? 'an image' : 'a video or audio file'}
+                                Upload an image
                             </label>
                             <div
                                 onClick={() => fileRef.current?.click()}
@@ -562,8 +558,8 @@ export default function VerifyPage() {
                                     transform: dragOver ? 'scale(1.01)' : 'scale(1)',
                                 }}>
                                 <input ref={fileRef} id={`file-${tab}`} type="file" className="sr-only"
-                                    name={tab === 'image' ? 'media-image' : 'media-video'}
-                                    accept={tab === 'image' ? 'image/*' : 'video/*,audio/*'}
+                                    name="media-image"
+                                    accept="image/*"
                                     onChange={e => setFile(e.target.files[0])} />
                                 {file && fileObjectUrl && tab === 'image' ? (
                                     <div className="flex flex-col items-center gap-2">
@@ -582,30 +578,12 @@ export default function VerifyPage() {
                                             {file.name} · {(file.size / 1024).toFixed(1)} KB
                                         </p>
                                     </div>
-                                ) : file && fileObjectUrl && tab === 'video' ? (
-                                    <div className="flex flex-col items-center gap-2">
-                                        <video
-                                            src={fileObjectUrl}
-                                            controls
-                                            onClick={e => e.stopPropagation()}
-                                            style={{
-                                                maxHeight: 200,
-                                                maxWidth: '100%',
-                                                borderRadius: 2,
-                                                border: '1px solid var(--border)',
-                                                background: '#000',
-                                            }}
-                                        />
-                                        <p className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                                            {file.name} · {(file.size / (1024 * 1024)).toFixed(2)} MB
-                                        </p>
-                                    </div>
                                 ) : (
                                     <>
                                         <Upload size={18} aria-hidden="true"
                                             style={{ margin: '0 auto 8px', color: 'var(--text-muted)' }} />
                                         <p className="text-sm" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                            Drop or click to upload {tab === 'image' ? 'image' : 'video / audio'}
+                                            Drop or click to upload image
                                         </p>
                                         <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', opacity: 0.6 }}>
                                             or press <kbd style={{ background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: 2, padding: '1px 5px', fontFamily: 'var(--font-mono)', fontSize: 10 }}>Ctrl+V</kbd> to paste from clipboard
@@ -644,7 +622,6 @@ export default function VerifyPage() {
                         style={{ fontFamily: 'var(--font-display)', color: 'var(--text-muted)', letterSpacing: '0.15em' }}>
                         {submittedInput.type === 'url' ? 'Scraped Text'
                             : submittedInput.type === 'image' ? 'OCR Extracted Text'
-                            : submittedInput.type === 'video' ? 'Transcribed Text'
                             : 'Verified Input'}
                     </p>
                     {submittedInput.type === 'url' && (
@@ -723,36 +700,6 @@ export default function VerifyPage() {
                                         <img src={submittedInput.fileUrl} alt=""
                                             style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 2, border: '1px solid var(--border)', flexShrink: 0 }} />
                                     )}
-                                    <p className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                                        {submittedInput.file?.name}
-                                    </p>
-                                </div>
-                            )
-                    )}
-                    {submittedInput.type === 'video' && (
-                        result?.extracted_text
-                            ? (
-                                <pre style={{
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word',
-                                    fontFamily: 'var(--font-mono)',
-                                    fontSize: 12,
-                                    lineHeight: 1.7,
-                                    color: 'var(--text-secondary)',
-                                    background: 'var(--bg-elevated)',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: 2,
-                                    padding: '12px 14px',
-                                    maxHeight: 280,
-                                    overflowY: 'auto',
-                                    margin: 0,
-                                }}>
-                                    {result.extracted_text}
-                                </pre>
-                            )
-                            : (
-                                <div className="flex items-center gap-2">
-                                    <Video size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} aria-hidden="true" />
                                     <p className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                                         {submittedInput.file?.name}
                                     </p>
