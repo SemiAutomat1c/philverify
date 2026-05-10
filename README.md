@@ -12,7 +12,7 @@ pinned: false
   <img src="frontend/public/logo.svg" alt="PhilVerify Logo" width="150">
 </p>
 <p align="center">
-  <em>Multimodal fake news detection for Philippine social media.</em>
+  <em>NLP-assisted fake news and claim credibility detection for Philippine social media.</em>
 </p>
 <p align="center">
   <img src="https://img.shields.io/badge/Machine_Learning_2-Final_Project-blue?style=flat-square" alt="Project Status">
@@ -30,14 +30,57 @@ pinned: false
 
 ## ✨ Features
 
-- **🎤 Multimodal Detection** — Verify raw text, news URLs, images, and video/audio
+- **📝 Text Verification** — Analyze pasted claims, headlines, and social media posts
+- **🔗 URL Verification** — Extract article/post text and check credibility against evidence
 - **🖼️ Image OCR** — Extract and analyze text from screenshots and images (Tesseract fil+eng)
-- **🎬 Video Frame OCR** — Extract on-screen text from video frames alongside Whisper speech transcription
-- **🔊 Speech Transcription** — Transcribe audio/video content using OpenAI Whisper
-- **🇵🇭 Language-Aware** — Seamlessly handles Tagalog, English, and Taglish content
-- **🧠 Advanced NLP Pipeline** — Real-time entity recognition, sentiment/emotion analysis, and clickbait detection
-- **⚖️ Two-Layer Scoring** — Combines ML classification (TF-IDF) with NewsAPI evidence retrieval
+- **🇵🇭 Language-Aware** — Handles Tagalog, English, and Taglish content
+- **🧠 NLP Pipeline** — Preprocessing, language detection, entity extraction, sentiment/clickbait signals, and claim extraction
+- **⚖️ Two-Layer Scoring** — Combines ML classification with trusted Philippine news/fact-check evidence retrieval
 - **🛡️ PH-Domain Verification** — Integrated database of Philippine news domain credibility tiers
+
+The public demo is intentionally scoped to text, URLs, and image/screenshot OCR. A legacy backend video route may remain available internally, but it is not part of the final project scope.
+
+---
+
+## Dataset and Evaluation Plan
+
+| Dataset / Source | Role | Labels | Notes |
+|------------------|------|--------|-------|
+| `jcblaise/fake_news_filipino` | Main training source | Real / Fake mapped to `Credible` / `Likely Fake` | Filipino fake-news benchmark dataset |
+| `philverify_handcrafted` | Training supplement | `Credible`, `Unverified`, `Likely Fake` | Adds Tagalog/Taglish examples and more `Unverified` claims |
+| Rappler and VERA Files samples | Training supplement and evidence examples | Fact-check verdicts mapped to 3 labels | Used carefully; evidence matching matters more than source name |
+| `ml/data/eval/facebook_style_claims.csv` | Separate evaluation set | `Credible`, `Unverified`, `Likely Fake` | 60 Facebook-style claims kept out of training |
+| Trusted PH news domains | Evidence layer | Not direct labels | Rappler, ABS-CBN, GMA, Inquirer, PhilStar, PNA, VERA Files, and official agencies |
+
+Run the two evaluation passes separately:
+
+```bash
+cd PhilVerify
+python -m ml.eval --skip-lda-analysis
+python -m ml.eval_facebook_style --skip-lda
+```
+
+The first command reports validation performance on the processed training dataset split. The second command reports how the classifier behaves on short, informal Facebook-style claims.
+
+---
+
+## System Flow
+
+```mermaid
+flowchart LR
+    A["Text / URL / Screenshot"] --> B["Text extraction"]
+    B --> C["NLP preprocessing"]
+    C --> D["Language, entities, sentiment, clickbait"]
+    C --> E["ML classifier"]
+    C --> F["Claim extraction"]
+    F --> G["Trusted PH news/fact-check evidence"]
+    D --> H["Final scoring"]
+    E --> H
+    G --> H
+    H --> I["Credible / Unverified / Likely Fake"]
+```
+
+PhilVerify predicts credibility. It does not guarantee absolute truth.
 
 ---
 
@@ -57,8 +100,7 @@ pinned: false
 
 1. **Python 3.12+**
 2. **Tesseract OCR** — `brew install tesseract tesseract-lang`
-3. **ffmpeg** — `brew install ffmpeg` (required for video frame extraction)
-4. **Node.js 18+** (for frontend)
+3. **Node.js 18+** (for frontend)
 
 ### Installation
 
@@ -114,8 +156,6 @@ VITE_API_BASE_URL=https://your-hf-space.hf.space/api
 | **NLP Engine** | spaCy, HuggingFace Transformers, langdetect |
 | **ML Classification** | scikit-learn (TF-IDF + Logistic Regression) |
 | **OCR** | Tesseract (fil+eng), pytesseract, Pillow |
-| **ASR** | OpenAI Whisper (base model) |
-| **Video Processing** | ffmpeg (frame extraction), asyncio parallel pipeline |
 | **Frontend** | React 18, TailwindCSS, Chart.js, Vite 7 |
 | **Backend Hosting** | Hugging Face Spaces (Docker SDK, port 7860) |
 | **Frontend Hosting** | Firebase Hosting |
@@ -135,7 +175,7 @@ PhilVerify/
 ├── api/
 │   ├── schemas.py           # Pydantic request/response models
 │   └── routes/
-│       ├── verify.py        # POST /api/verify — handles text/url/image/video
+│       ├── verify.py        # POST /api/verify — handles text/url/image
 │       ├── history.py       # GET /api/history
 │       └── trends.py        # GET /api/trends
 │
@@ -158,9 +198,7 @@ PhilVerify/
 │
 ├── inputs/
 │   ├── url_scraper.py       # BeautifulSoup article extractor
-│   ├── ocr.py               # Tesseract OCR for images
-│   ├── asr.py               # Whisper ASR + combined video transcription
-│   └── video_ocr.py         # ffmpeg frame extraction + Tesseract OCR for video
+│   └── ocr.py               # Tesseract OCR for images
 │
 ├── frontend/                # React + Vite frontend
 │   ├── src/
@@ -181,12 +219,22 @@ PhilVerify/
 - [x] Phase 2 — NLP preprocessing pipeline
 - [x] Phase 3 — TF-IDF baseline classifier
 - [x] Phase 4 — NewsAPI evidence retrieval
-- [x] Phase 5 — React web dashboard with multimodal input
+- [x] Phase 5 — React web dashboard with text, URL, and screenshot input
 - [x] Phase 6 — Deploy to Hugging Face Spaces (backend) + Firebase (frontend)
-- [x] Phase 7 — Video frame OCR (ffmpeg + Tesseract alongside Whisper ASR)
+- [x] Phase 7 — Facebook-style evaluation dataset
 - [ ] Phase 8 — Scoring engine refinement (stance detection)
-- [ ] Phase 9 — Chrome Extension (Manifest V3)
+- [ ] Phase 9 — Chrome Extension polish (Manifest V3)
 - [ ] Phase 10 — Fine-tune XLM-RoBERTa / TLUnified-RoBERTa
+
+---
+
+## Limitations
+
+- Facebook posts are shorter and more informal than many news-article training samples.
+- Screenshot OCR can misread blurry, cropped, or stylized text.
+- Satire, sarcasm, quote cards, and missing context remain difficult.
+- `Unverified` is the hardest class because it represents uncertainty rather than a single writing style.
+- Verdicts should be treated as research/educational credibility signals, not professional fact-check rulings.
 
 ---
 

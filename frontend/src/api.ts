@@ -63,12 +63,6 @@ export const api = {
     return postForm('/verify/image', f)
   },
 
-  verifyVideo: (file: File): Promise<VerificationResponse> => {
-    const f = new FormData()
-    f.append('file', file)
-    return postForm('/verify/video', f)
-  },
-
   history: (params?: HistoryParams): Promise<HistoryResponse> =>
     get('/history', params as Record<string, string | number | undefined>),
 

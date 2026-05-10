@@ -28,7 +28,7 @@ import logging
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
 from ml.bow_classifier import BoWClassifier
-from ml.dataset import LABEL_NAMES, get_split
+from ml.combined_dataset import LABEL_NAMES, get_split
 from ml.ensemble_classifier import EnsembleClassifier
 from ml.lda_analysis import LDAFeatureClassifier, run_topic_analysis
 from ml.naive_bayes_classifier import NaiveBayesClassifier
